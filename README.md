@@ -13,29 +13,54 @@ An extensible auto-remediation framework that bridges Prometheus Alertmanager wi
 - **Conditional Execution**: Execute actions based on severity, labels, or other conditions
 - **Template Support**: Dynamic parameters using alert labels and annotations
 
+## Quick Start
+
+### 1. Install StackStorm
+
+PoundCake requires a running StackStorm instance to execute remediation actions. Use the provided install script:
+
+```bash
+# Install StackStorm using the install script
+cd bin
+./install-stackstorm.sh
+```
+
+This script will:
+- Install StackStorm via Helm
+- Create admin credentials secret in both `stackstorm` and `poundcake` namespaces
+- Configure RBAC and authentication
+- Display the generated admin password
+
+### 2. Install PoundCake
+
+```bash
+# Install PoundCake using the install script
+./install-poundcake.sh
+```
+
+PoundCake will automatically:
+- Connect to StackStorm using the shared `stackstorm-admin` secret
+- Auto-generate API keys for authentication
+- Set up alert tracking with Redis
+- Configure the webhook endpoint for Alertmanager
+
+### 3. Configure Alertmanager
+
+Add PoundCake as a webhook receiver in Alertmanager:
+
+```yaml
+receivers:
+  - name: poundcake
+    webhook_configs:
+      - url: http://poundcake.poundcake.svc.cluster.local:8080/webhook
+```
+
 ## Prerequisites
 
 ### StackStorm
 
 PoundCake requires a running StackStorm instance to execute remediation actions. StackStorm is an open-source
 automation platform that provides event-driven automation and integrates with various infrastructure tools.
-
-#### Installing StackStorm on Kubernetes
-
-```bash
-# Add the StackStorm Helm repository
-helm repo add stackstorm https://helm.stackstorm.com
-helm repo update
-
-# Install StackStorm HA (High Availability)
-helm install stackstorm stackstorm/stackstorm-ha \
-  --namespace stackstorm \
-  --create-namespace \
-  --set st2.password=your-admin-password
-
-# Wait for pods to be ready
-kubectl -n stackstorm get pods -w
-```
 
 For production deployments, see the [StackStorm Kubernetes documentation](https://docs.stackstorm.com/install/k8s_ha.html).
 
