@@ -41,6 +41,7 @@ class StackStormClient:
         if not self._api_key and not self._auth_token:
             try:
                 from poundcake.apikey_manager import get_api_key_manager
+
                 manager = get_api_key_manager()
                 self._api_key = await manager.get_api_key()
             except Exception as e:
