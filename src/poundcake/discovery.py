@@ -173,7 +173,7 @@ class StackStormDiscovery:
 
                 # First, authenticate to get a token
                 auth_response = await client.post(
-                    f"{auth_url.rstrip('/')}/auth/v1/tokens",
+                    f"{auth_url.rstrip('/')}/v1/tokens",
                     auth=(username, password),
                 )
 
