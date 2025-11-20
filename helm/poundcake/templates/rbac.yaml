@@ -10,10 +10,10 @@ rules:
   - apiGroups: [""]
     resources: ["services"]
     verbs: ["get", "list"]
-  # Allow reading secrets for StackStorm credentials
+  # Allow managing secrets for StackStorm API key persistence and credentials
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["get", "create", "update"]
+    verbs: ["get", "list", "create", "update", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

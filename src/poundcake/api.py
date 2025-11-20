@@ -103,11 +103,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     set_state_store(state_store)
 
+    # Initialize API key manager and get key
+    from poundcake.apikey_manager import get_api_key_manager
+
+    api_key_manager = get_api_key_manager()
+    api_key = await api_key_manager.get_api_key()
+
+    if api_key:
+        logger.info("StackStorm API key obtained successfully")
+    else:
+        logger.warning(
+            "Could not obtain StackStorm API key - auto-remediation may not work. "
+            "Ensure POUNDCAKE_STACKSTORM_API_KEY or admin credentials are configured."
+        )
+
     # Auto-discover and configure StackStorm
     discovery = StackStormDiscovery()
-    url, api_key = await discovery.auto_configure()
+    url, discovered_key = await discovery.auto_configure()
     if url:
-        logger.info("StackStorm configured", url=url, has_key=bool(api_key))
+        logger.info("StackStorm configured", url=url, has_key=bool(discovered_key))
 
     engine = get_engine()
     engine.initialize()

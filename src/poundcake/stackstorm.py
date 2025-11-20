@@ -6,7 +6,6 @@ import httpx
 import structlog
 
 from poundcake.config import get_settings
-from poundcake.models.remediation import RemediationAction
 
 logger = structlog.get_logger(__name__)
 
@@ -20,26 +19,43 @@ class StackStormError(Exception):
 class StackStormClient:
     """Client for interacting with StackStorm API."""
 
-    def __init__(self) -> None:
-        """Initialize the StackStorm client."""
+    def __init__(self, api_key: str | None = None) -> None:
+        """Initialize the StackStorm client.
+
+        Args:
+            api_key: Optional API key to use. If not provided, will try to get from manager.
+        """
         settings = get_settings()
         self.base_url = settings.stackstorm_url.rstrip("/")
-        self.api_key = settings.stackstorm_api_key
-        self.auth_token = settings.stackstorm_auth_token
         self.verify_ssl = settings.stackstorm_verify_ssl
+        self._api_key: str | None = api_key or settings.stackstorm_api_key or None
+        self._auth_token: str | None = settings.stackstorm_auth_token or None
 
-        # Build headers
-        self.headers: dict[str, str] = {
+    async def _get_headers(self) -> dict[str, str]:
+        """Get headers with current API key."""
+        headers: dict[str, str] = {
             "Content-Type": "application/json",
         }
-        if self.api_key:
-            self.headers["St2-Api-Key"] = self.api_key
-        elif self.auth_token:
-            self.headers["X-Auth-Token"] = self.auth_token
+
+        # Try to get API key from manager if not set
+        if not self._api_key and not self._auth_token:
+            try:
+                from poundcake.apikey_manager import get_api_key_manager
+                manager = get_api_key_manager()
+                self._api_key = await manager.get_api_key()
+            except Exception as e:
+                logger.debug("Could not get API key from manager", error=str(e))
+
+        if self._api_key:
+            headers["St2-Api-Key"] = self._api_key
+        elif self._auth_token:
+            headers["X-Auth-Token"] = self._auth_token
+
+        return headers
 
     async def execute_action(
         self,
-        action: RemediationAction,
+        action: Any,
         parameters: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
@@ -66,6 +82,8 @@ class StackStormClient:
             parameters=merged_params,
         )
 
+        headers = await self._get_headers()
+
         async with httpx.AsyncClient(
             verify=self.verify_ssl,
             timeout=httpx.Timeout(action.timeout),
@@ -75,7 +93,7 @@ class StackStormClient:
 
                 response = await client.post(
                     f"{self.base_url}/v1/executions",
-                    headers=self.headers,
+                    headers=headers,
                     json=payload,
                 )
 
@@ -111,13 +129,15 @@ class StackStormClient:
         Returns:
             The execution details
         """
+        headers = await self._get_headers()
+
         async with httpx.AsyncClient(
             verify=self.verify_ssl,
             timeout=httpx.Timeout(30),
         ) as client:
             response = await client.get(
                 f"{self.base_url}/v1/executions/{execution_id}",
-                headers=self.headers,
+                headers=headers,
             )
 
             if response.status_code == 200:
@@ -162,6 +182,8 @@ class StackStormClient:
 
     async def health_check(self) -> bool:
         """Check if StackStorm API is accessible."""
+        headers = await self._get_headers()
+
         async with httpx.AsyncClient(
             verify=self.verify_ssl,
             timeout=httpx.Timeout(10),
@@ -169,7 +191,7 @@ class StackStormClient:
             try:
                 response = await client.get(
                     f"{self.base_url}/v1/actions",
-                    headers=self.headers,
+                    headers=headers,
                     params={"limit": 1},
                 )
                 return response.status_code == 200

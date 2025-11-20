@@ -227,13 +227,15 @@ class StackStormActionManager:
         if pack:
             params["pack"] = pack
 
+        headers = await self._client._get_headers()
+
         async with httpx.AsyncClient(
             verify=self._client.verify_ssl,
             timeout=httpx.Timeout(30),
         ) as client:
             response = await client.get(
                 f"{self._client.base_url}/v1/actions",
-                headers=self._client.headers,
+                headers=headers,
                 params=params,
             )
 
@@ -254,13 +256,15 @@ class StackStormActionManager:
         """
         import httpx
 
+        headers = await self._client._get_headers()
+
         async with httpx.AsyncClient(
             verify=self._client.verify_ssl,
             timeout=httpx.Timeout(30),
         ) as client:
             response = await client.get(
                 f"{self._client.base_url}/v1/actions/{action_ref}",
-                headers=self._client.headers,
+                headers=headers,
             )
 
             if response.status_code == 200:
@@ -277,13 +281,15 @@ class StackStormActionManager:
         """
         import httpx
 
+        headers = await self._client._get_headers()
+
         async with httpx.AsyncClient(
             verify=self._client.verify_ssl,
             timeout=httpx.Timeout(30),
         ) as client:
             response = await client.get(
                 f"{self._client.base_url}/v1/packs",
-                headers=self._client.headers,
+                headers=headers,
             )
 
             if response.status_code == 200:
@@ -312,13 +318,15 @@ class StackStormActionManager:
         if action:
             params["action"] = action
 
+        headers = await self._client._get_headers()
+
         async with httpx.AsyncClient(
             verify=self._client.verify_ssl,
             timeout=httpx.Timeout(30),
         ) as client:
             response = await client.get(
                 f"{self._client.base_url}/v1/executions",
-                headers=self._client.headers,
+                headers=headers,
                 params=params,
             )
 
