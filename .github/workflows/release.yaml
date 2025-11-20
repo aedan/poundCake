@@ -86,11 +86,16 @@ jobs:
 
       - name: Package Helm chart
         run: |
+          mkdir -p .helm-packages
           helm package helm/poundcake -d .helm-packages
+          ls -lah .helm-packages/
 
       - name: Push Helm chart to OCI registry
         run: |
-          helm push .helm-packages/*.tgz oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
+          for chart in .helm-packages/*.tgz; do
+            echo "Pushing $chart to oci://${{ env.REGISTRY }}/${{ github.repository_owner }}"
+            helm push "$chart" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
+          done
 
   create-release:
     runs-on: ubuntu-latest
