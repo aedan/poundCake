@@ -93,6 +93,9 @@ config:
 stackstorm:
   # URL to StackStorm API (defaults to service in stackstorm namespace)
   url: "http://stackstorm-st2api.stackstorm.svc.cluster.local:9101"
+  # URL to StackStorm Auth service (defaults to url if not specified)
+  # StackStorm HA deploys separate services for API and Auth
+  authUrl: "http://stackstorm-st2auth.stackstorm.svc.cluster.local:9100"
   verifySsl: false
   # API key or auth token (use secrets for production)
   apiKey: ""

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
 
     # StackStorm settings
     stackstorm_url: str = "https://localhost"
+    stackstorm_auth_url: str = ""  # If empty, defaults to stackstorm_url
     stackstorm_api_key: str = ""
     stackstorm_auth_token: str = ""
     stackstorm_verify_ssl: bool = True

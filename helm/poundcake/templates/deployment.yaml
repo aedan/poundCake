@@ -62,6 +62,10 @@ spec:
               value: "/app/config/mappings"
             - name: POUNDCAKE_STACKSTORM_URL
               value: {{ .Values.stackstorm.url | quote }}
+            {{- if .Values.stackstorm.authUrl }}
+            - name: POUNDCAKE_STACKSTORM_AUTH_URL
+              value: {{ .Values.stackstorm.authUrl | quote }}
+            {{- end }}
             - name: POUNDCAKE_STACKSTORM_VERIFY_SSL
               value: {{ .Values.stackstorm.verifySsl | quote }}
             {{- if or .Values.stackstorm.apiKey .Values.stackstorm.existingSecret }}

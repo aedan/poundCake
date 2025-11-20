@@ -168,9 +168,12 @@ class StackStormDiscovery:
             timeout=httpx.Timeout(30),
         ) as client:
             try:
+                # Use separate auth URL if configured, otherwise use main URL
+                auth_url = self.settings.stackstorm_auth_url or url
+
                 # First, authenticate to get a token
                 auth_response = await client.post(
-                    f"{url.rstrip('/')}/auth/v1/tokens",
+                    f"{auth_url.rstrip('/')}/auth/v1/tokens",
                     auth=(username, password),
                 )
 
