@@ -72,8 +72,8 @@ HELM_CMD="$HELM_CMD \
   --create-namespace \
   --timeout 120m"
 
-# Add post-renderer if available (for genestack integration)
-if [ -f "/etc/genestack/kustomize/kustomize.sh" ]; then
+# Add post-renderer if available (for genestack integration) AND overlay exists
+if [ -f "/etc/genestack/kustomize/kustomize.sh" ] && [ -d "/etc/genestack/kustomize/stackstorm/overlay" ]; then
     HELM_CMD="$HELM_CMD \
   --post-renderer /etc/genestack/kustomize/kustomize.sh \
   --post-renderer-args stackstorm/overlay"
