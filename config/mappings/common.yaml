@@ -1,0 +1,189 @@
+# Common alert-to-remediation mappings
+# This file defines how specific Prometheus alerts should be automatically remediated
+
+alerts:
+  # High CPU Usage Alert
+  HighCPUUsage:
+    description: "Remediate high CPU usage on instances"
+    handler: yaml_config
+    actions:
+      - name: identify_cpu_process
+        action: core.remote
+        description: "Identify the process consuming high CPU"
+        parameters:
+          hosts: "{{instance}}"
+          cmd: "ps aux --sort=-%cpu | head -10"
+        timeout: 60
+
+      - name: restart_application
+        action: linux.service
+        description: "Restart the problematic service"
+        conditions:
+          severity: critical
+          has_labels:
+            - service
+        parameters:
+          host: "{{instance}}"
+          service: "{{labels.service}}"
+          action: restart
+        timeout: 120
+
+  # Low Disk Space Alert
+  LowDiskSpace:
+    description: "Clean up disk space when running low"
+    handler: yaml_config
+    actions:
+      - name: cleanup_logs
+        action: core.remote
+        description: "Clean up old compressed log files"
+        parameters:
+          hosts: "{{instance}}"
+          cmd: "find /var/log -name '*.gz' -mtime +7 -delete"
+        timeout: 120
+
+      - name: cleanup_tmp
+        action: core.remote
+        description: "Clean up temporary files"
+        parameters:
+          hosts: "{{instance}}"
+          cmd: "find /tmp -type f -mtime +1 -delete"
+        timeout: 120
+
+      - name: docker_prune
+        action: core.remote
+        description: "Clean up unused Docker resources"
+        conditions:
+          labels:
+            has_docker: "true"
+        parameters:
+          hosts: "{{instance}}"
+          cmd: "docker system prune -af --volumes"
+        timeout: 300
+
+  # Service Down Alert
+  ServiceDown:
+    description: "Restart services that are down"
+    handler: yaml_config
+    actions:
+      - name: check_service_status
+        action: linux.service
+        description: "Check the current service status"
+        parameters:
+          host: "{{instance}}"
+          service: "{{labels.service}}"
+          action: status
+        timeout: 30
+
+      - name: restart_service
+        action: linux.service
+        description: "Restart the down service"
+        parameters:
+          host: "{{instance}}"
+          service: "{{labels.service}}"
+          action: restart
+        timeout: 120
+        retry_count: 2
+        retry_delay: 30
+
+  # Database Connection Errors
+  DatabaseConnectionError:
+    description: "Handle database connection issues"
+    handler: yaml_config
+    actions:
+      - name: check_db_connectivity
+        action: core.remote
+        description: "Check database connectivity"
+        parameters:
+          hosts: "{{instance}}"
+          cmd: "pg_isready -h {{labels.db_host}} -p {{labels.db_port}}"
+        timeout: 30
+
+      - name: restart_connection_pool
+        action: core.remote
+        description: "Restart the application to refresh connection pool"
+        conditions:
+          severity:
+            - warning
+            - critical
+        parameters:
+          hosts: "{{instance}}"
+          cmd: "systemctl restart {{labels.service}}"
+        timeout: 120
+
+  # High Memory Usage
+  HighMemoryUsage:
+    description: "Handle high memory usage alerts"
+    handler: yaml_config
+    actions:
+      - name: identify_memory_hogs
+        action: core.remote
+        description: "Identify processes consuming high memory"
+        parameters:
+          hosts: "{{instance}}"
+          cmd: "ps aux --sort=-%mem | head -10"
+        timeout: 60
+
+      - name: clear_caches
+        action: core.remote
+        description: "Clear system caches"
+        conditions:
+          severity: critical
+        parameters:
+          hosts: "{{instance}}"
+          cmd: "sync && echo 3 > /proc/sys/vm/drop_caches"
+        timeout: 30
+
+  # SSL Certificate Expiry
+  SSLCertificateExpiringSoon:
+    description: "Alert on SSL certificates expiring soon"
+    handler: yaml_config
+    actions:
+      - name: notify_team
+        action: slack.post_message
+        description: "Notify the team about expiring certificate"
+        parameters:
+          channel: "#alerts"
+          message: "SSL Certificate for {{labels.domain}} expires in {{annotations.days_remaining}} days"
+        timeout: 30
+
+      - name: attempt_renewal
+        action: core.remote
+        description: "Attempt to renew the certificate with certbot"
+        conditions:
+          labels:
+            certbot: "true"
+        parameters:
+          hosts: "{{instance}}"
+          cmd: "certbot renew --cert-name {{labels.domain}}"
+        timeout: 300
+
+  # Pod CrashLoopBackOff (Kubernetes)
+  PodCrashLoopBackOff:
+    description: "Handle Kubernetes pods in CrashLoopBackOff"
+    handler: yaml_config
+    actions:
+      - name: get_pod_logs
+        action: core.remote
+        description: "Retrieve pod logs for debugging"
+        parameters:
+          hosts: "{{labels.kubernetes_node}}"
+          cmd: "kubectl logs {{labels.pod}} -n {{labels.namespace}} --tail=100"
+        timeout: 60
+
+      - name: describe_pod
+        action: core.remote
+        description: "Get detailed pod description"
+        parameters:
+          hosts: "{{labels.kubernetes_node}}"
+          cmd: "kubectl describe pod {{labels.pod}} -n {{labels.namespace}}"
+        timeout: 60
+
+      - name: restart_pod
+        action: core.remote
+        description: "Delete pod to force restart"
+        conditions:
+          severity: critical
+        parameters:
+          hosts: "{{labels.kubernetes_node}}"
+          cmd: "kubectl delete pod {{labels.pod}} -n {{labels.namespace}}"
+        timeout: 120

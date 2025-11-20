@@ -1,0 +1,36 @@
+# Example Alertmanager configuration for PoundCake
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'poundcake'
+
+  routes:
+    # Send critical alerts immediately
+    - match:
+        severity: critical
+      group_wait: 0s
+      receiver: 'poundcake'
+
+    # Send warning alerts
+    - match:
+        severity: warning
+      receiver: 'poundcake'
+
+receivers:
+  - name: 'poundcake'
+    webhook_configs:
+      - url: 'http://poundcake:8080/webhook'
+        send_resolved: true
+        max_alerts: 10
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']

@@ -1,0 +1,228 @@
+# Default values for poundcake
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/aedan/poundcake
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to chart appVersion
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: poundcake.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: poundcake-tls
+  #    hosts:
+  #      - poundcake.local
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# PoundCake configuration
+config:
+  # Server settings
+  host: "0.0.0.0"
+  port: 8080
+  debug: false
+
+  # Logging
+  logLevel: INFO
+  logFormat: json
+
+  # Metrics
+  metricsEnabled: true
+  metricsPath: /metrics
+
+  # Remediation settings
+  defaultTimeout: 300
+  maxConcurrentRemediations: 10
+
+# StackStorm connection settings
+stackstorm:
+  url: "https://stackstorm"
+  verifySsl: true
+  # API key or auth token (use secrets for production)
+  apiKey: ""
+  authToken: ""
+  # Reference to existing secret containing StackStorm credentials
+  existingSecret: ""
+  # Keys in the secret
+  secretKeys:
+    apiKey: "api-key"
+    authToken: "auth-token"
+  # Auto-discovery settings
+  autoDiscover: true
+  discoverAcrossNamespaces: true
+  # Admin credentials for auto API key generation (optional)
+  adminUser: "st2admin"
+  adminPassword: ""
+  adminPasswordSecret: ""
+  adminPasswordSecretKey: "password"
+
+# Alert-to-action mappings
+# These will be mounted as ConfigMap
+mappings:
+  common.yaml: |
+    alerts:
+      HighCPUUsage:
+        description: "Remediate high CPU usage"
+        handler: yaml_config
+        actions:
+          - name: identify_cpu_process
+            action: core.remote
+            description: "Identify CPU-intensive processes"
+            parameters:
+              hosts: "{{instance}}"
+              cmd: "ps aux --sort=-%cpu | head -10"
+            timeout: 60
+
+      LowDiskSpace:
+        description: "Clean up disk space"
+        handler: yaml_config
+        actions:
+          - name: cleanup_logs
+            action: core.remote
+            description: "Clean up old log files"
+            parameters:
+              hosts: "{{instance}}"
+              cmd: "find /var/log -name '*.gz' -mtime +7 -delete"
+            timeout: 120
+
+      ServiceDown:
+        description: "Restart down services"
+        handler: yaml_config
+        actions:
+          - name: restart_service
+            action: linux.service
+            parameters:
+              host: "{{instance}}"
+              service: "{{labels.service}}"
+              action: restart
+            timeout: 120
+
+# ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: false
+  namespace: ""
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+  # selector:
+  #   prometheus: kube-prometheus
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Persistence for writable mappings (required for web UI edits)
+persistence:
+  enabled: false
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 100Mi
+
+# Redis configuration for stateful alert tracking
+# Required for horizontal scaling
+redis:
+  # Enable Redis for state management (required for replicaCount > 1)
+  enabled: false
+
+  # Deploy Redis as part of this chart (independent deployment)
+  # Set to false to use an external Redis instance
+  deploy: true
+
+  # Redis image configuration
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+
+  # Redis authentication
+  password: ""
+  # Reference to existing secret containing Redis password
+  existingSecret: ""
+  secretKey: "redis-password"
+
+  # Redis resource limits
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  # Persistence configuration
+  persistence:
+    enabled: true
+    # Storage class - leave empty for default storage class
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+
+  # External Redis configuration (when deploy: false)
+  external:
+    # Redis connection URL (e.g., redis://my-redis:6379/0)
+    url: ""
+    # Password for external Redis
+    password: ""
+    existingSecret: ""
+    secretKey: "redis-password"
+
+  # State management settings
+  alertTtlHours: 24  # How long to keep resolved alerts
+  lockTimeoutSeconds: 300  # Distributed lock timeout

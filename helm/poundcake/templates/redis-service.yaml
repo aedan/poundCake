@@ -1,0 +1,19 @@
+{{- if and .Values.redis.enabled .Values.redis.deploy }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "poundcake.fullname" . }}-redis
+  labels:
+    {{- include "poundcake.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: redis
+      protocol: TCP
+      name: redis
+  selector:
+    {{- include "poundcake.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+{{- end }}

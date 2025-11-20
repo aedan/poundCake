@@ -1,0 +1,61 @@
+{{- if .Values.serviceAccount.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "poundcake.fullname" . }}
+  labels:
+    {{- include "poundcake.labels" . | nindent 4 }}
+rules:
+  # Allow reading services to discover StackStorm
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list"]
+  # Allow reading secrets for StackStorm credentials
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "poundcake.fullname" . }}
+  labels:
+    {{- include "poundcake.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "poundcake.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "poundcake.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- if .Values.stackstorm.discoverAcrossNamespaces }}
+---
+# ClusterRole for discovering StackStorm in other namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "poundcake.fullname" . }}-discovery
+  labels:
+    {{- include "poundcake.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "poundcake.fullname" . }}-discovery
+  labels:
+    {{- include "poundcake.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "poundcake.fullname" . }}-discovery
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "poundcake.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- end }}
