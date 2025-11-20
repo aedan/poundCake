@@ -133,7 +133,7 @@ class StackStormDiscovery:
         ) as client:
             try:
                 response = await client.get(
-                    f"{url.rstrip('/')}/api/v1/actions",
+                    f"{url.rstrip('/')}/v1/actions",
                     headers={
                         "St2-Api-Key": api_key,
                         "Content-Type": "application/json",
@@ -188,7 +188,7 @@ class StackStormDiscovery:
 
                 # Now create an API key
                 key_response = await client.post(
-                    f"{url.rstrip('/')}/api/v1/apikeys",
+                    f"{url.rstrip('/')}/v1/apikeys",
                     headers={
                         "X-Auth-Token": auth_token,
                         "Content-Type": "application/json",

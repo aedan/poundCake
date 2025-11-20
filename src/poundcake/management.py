@@ -232,7 +232,7 @@ class StackStormActionManager:
             timeout=httpx.Timeout(30),
         ) as client:
             response = await client.get(
-                f"{self._client.base_url}/api/v1/actions",
+                f"{self._client.base_url}/v1/actions",
                 headers=self._client.headers,
                 params=params,
             )
@@ -259,7 +259,7 @@ class StackStormActionManager:
             timeout=httpx.Timeout(30),
         ) as client:
             response = await client.get(
-                f"{self._client.base_url}/api/v1/actions/{action_ref}",
+                f"{self._client.base_url}/v1/actions/{action_ref}",
                 headers=self._client.headers,
             )
 
@@ -282,7 +282,7 @@ class StackStormActionManager:
             timeout=httpx.Timeout(30),
         ) as client:
             response = await client.get(
-                f"{self._client.base_url}/api/v1/packs",
+                f"{self._client.base_url}/v1/packs",
                 headers=self._client.headers,
             )
 
@@ -317,7 +317,7 @@ class StackStormActionManager:
             timeout=httpx.Timeout(30),
         ) as client:
             response = await client.get(
-                f"{self._client.base_url}/api/v1/executions",
+                f"{self._client.base_url}/v1/executions",
                 headers=self._client.headers,
                 params=params,
             )

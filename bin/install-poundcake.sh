@@ -17,7 +17,7 @@ if [ -f "$VERSION_FILE" ]; then
 fi
 
 # Use environment variable as fallback, or default to "latest"
-POUNDCAKE_VERSION="${POUNDCAKE_VERSION:-${POUNDCAKE_CHART_VERSION:-0.1.7}}"
+POUNDCAKE_VERSION="${POUNDCAKE_VERSION:-${POUNDCAKE_CHART_VERSION:-0.1.8}}"
 
 echo "Installing PoundCake version: ${POUNDCAKE_VERSION}"
 

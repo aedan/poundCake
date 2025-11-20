@@ -74,7 +74,7 @@ class StackStormClient:
                 log.info("Executing StackStorm action")
 
                 response = await client.post(
-                    f"{self.base_url}/api/v1/executions",
+                    f"{self.base_url}/v1/executions",
                     headers=self.headers,
                     json=payload,
                 )
@@ -116,7 +116,7 @@ class StackStormClient:
             timeout=httpx.Timeout(30),
         ) as client:
             response = await client.get(
-                f"{self.base_url}/api/v1/executions/{execution_id}",
+                f"{self.base_url}/v1/executions/{execution_id}",
                 headers=self.headers,
             )
 
@@ -168,7 +168,7 @@ class StackStormClient:
         ) as client:
             try:
                 response = await client.get(
-                    f"{self.base_url}/api/v1/actions",
+                    f"{self.base_url}/v1/actions",
                     headers=self.headers,
                     params={"limit": 1},
                 )
