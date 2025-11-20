@@ -83,13 +83,6 @@ jobs:
         run: |
           echo ${{ secrets.CR_PAT || secrets.GITHUB_TOKEN }} | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
-      - name: Update appVersion in Chart.yaml
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          TAG=${GITHUB_REF#refs/tags/v}
-          sed -i "s/^appVersion:.*/appVersion: \"$TAG\"/" helm/poundcake/Chart.yaml
-          sed -i "s/^version:.*/version: $TAG/" helm/poundcake/Chart.yaml
-
       - name: Package Helm chart
         run: |
           helm package helm/poundcake -d .helm-packages
