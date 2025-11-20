@@ -57,6 +57,23 @@ jobs:
           no-cache: true
           platforms: linux/amd64
 
+      - name: Make Docker image public
+        if: github.event_name != 'pull_request'
+        run: |
+          curl -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/user/packages/container/poundcake/versions \
+            -d '{"visibility":"public"}' || echo "Package may already be public or API call failed (non-fatal)"
+
+          curl -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/orgs/${{ github.repository_owner }}/packages/container/poundcake \
+            -d '{"visibility":"public"}' || echo "Package may already be public or API call failed (non-fatal)"
+
   test:
     runs-on: ubuntu-latest
     steps:
