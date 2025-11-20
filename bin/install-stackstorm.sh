@@ -14,7 +14,7 @@ fi
 NAMESPACE="${STACKSTORM_NAMESPACE:-stackstorm}"
 RELEASE_NAME="${STACKSTORM_RELEASE_NAME:-stackstorm}"
 HELM_REPO="https://helm.stackstorm.com/"
-CHART_NAME="stackstorm/stackstorm"
+CHART_NAME="stackstorm/stackstorm-ha"
 
 # Get version from helm-chart-versions.yaml if it exists
 if [ -f "/etc/genestack/helm-chart-versions.yaml" ]; then
