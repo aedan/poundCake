@@ -80,6 +80,10 @@ HELM_CMD="$HELM_CMD \
   --create-namespace \
   --timeout 120m"
 
+# Add external services configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HELM_CMD="$HELM_CMD -f ${SCRIPT_DIR}/stackstorm-external-services-values.yaml"
+
 # Add post-renderer if available (for genestack integration) AND overlay exists
 if [ -f "/etc/genestack/kustomize/kustomize.sh" ] && [ -d "/etc/genestack/kustomize/stackstorm/overlay" ]; then
     HELM_CMD="$HELM_CMD \
@@ -87,7 +91,7 @@ if [ -f "/etc/genestack/kustomize/kustomize.sh" ] && [ -d "/etc/genestack/kustom
   --post-renderer-args stackstorm/overlay"
 fi
 
-# Add values files
+# Add values files (these override the external services config if needed)
 if [ -f "/etc/genestack/helm-configs/stackstorm/stackstorm-helm-overrides.yaml" ]; then
     HELM_CMD="$HELM_CMD -f /etc/genestack/helm-configs/stackstorm/stackstorm-helm-overrides.yaml"
 fi
@@ -95,27 +99,6 @@ fi
 if [ -f "/etc/genestack/helm-configs/global_overrides/endpoints.yaml" ]; then
     HELM_CMD="$HELM_CMD -f /etc/genestack/helm-configs/global_overrides/endpoints.yaml"
 fi
-
-# Disable bundled dependencies - use external services instead
-HELM_CMD="$HELM_CMD \
-  --set mongodb.enabled=false \
-  --set rabbitmq.enabled=false \
-  --set redis.enabled=false \
-  --set st2.rbac.enabled=true"
-
-# Configure external service endpoints via st2.config
-# These can be overridden in helm-configs
-HELM_CMD="$HELM_CMD \
-  --set-string st2.config='[database]
-host = mongodb.stackstorm.svc.cluster.local
-port = 27017
-db_name = st2
-
-[messaging]
-url = amqp://admin:stackstorm@rabbitmq.stackstorm.svc.cluster.local:5672
-
-[coordination]
-url = redis://redis.stackstorm.svc.cluster.local:6379'"
 
 # Execute Helm command
 echo "Executing Helm command:"

@@ -1,0 +1,30 @@
+# StackStorm configuration for external MongoDB, RabbitMQ, Redis
+# This file configures StackStorm to use externally deployed services
+
+# Disable bundled services
+mongodb:
+  enabled: false
+
+rabbitmq:
+  enabled: false
+
+redis:
+  enabled: false
+
+# Enable RBAC
+st2:
+  rbac:
+    enabled: true
+
+  # Configure external service endpoints
+  config: |
+    [database]
+    host = mongodb.stackstorm.svc.cluster.local
+    port = 27017
+    db_name = st2
+
+    [messaging]
+    url = amqp://admin:stackstorm@rabbitmq.stackstorm.svc.cluster.local:5672
+
+    [coordination]
+    url = redis://redis.stackstorm.svc.cluster.local:6379
