@@ -26,8 +26,16 @@ VERSION="${VERSION:-}"
 ST2_ADMIN_USER="${ST2_ADMIN_USER:-st2admin}"
 ST2_ADMIN_PASSWORD="${ST2_ADMIN_PASSWORD:-$(openssl rand -base64 32)}"
 
-# Create namespace if it doesn't exist
-kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 || kubectl create namespace "$NAMESPACE"
+# Create namespace with PodSecurity policies if it doesn't exist
+if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+    echo "Creating namespace $NAMESPACE with PodSecurity policies..."
+    kubectl create namespace "$NAMESPACE"
+    kubectl label namespace "$NAMESPACE" \
+        pod-security.kubernetes.io/enforce=baseline \
+        pod-security.kubernetes.io/audit=baseline \
+        pod-security.kubernetes.io/warn=baseline
+    echo "Namespace $NAMESPACE created with baseline PodSecurity policy"
+fi
 
 # Create secret for StackStorm admin credentials in stackstorm namespace
 echo "Creating StackStorm admin credentials secret in $NAMESPACE namespace..."
@@ -88,27 +96,26 @@ if [ -f "/etc/genestack/helm-configs/global_overrides/endpoints.yaml" ]; then
     HELM_CMD="$HELM_CMD -f /etc/genestack/helm-configs/global_overrides/endpoints.yaml"
 fi
 
-# Disable bundled Bitnami dependencies - use external services instead
+# Disable bundled dependencies - use external services instead
 HELM_CMD="$HELM_CMD \
   --set mongodb.enabled=false \
   --set rabbitmq.enabled=false \
   --set redis.enabled=false \
-  --set st2.rbac.enabled=true \
-  --set st2auth.existingSecret=stackstorm-admin \
-  --set st2auth.existingSecretUsernameKey=username \
-  --set st2auth.existingSecretPasswordKey=password"
+  --set st2.rbac.enabled=true"
 
-# Configure external service endpoints
+# Configure external service endpoints via st2.config
 # These can be overridden in helm-configs
 HELM_CMD="$HELM_CMD \
-  --set externalMongoDB.host=mongodb.stackstorm.svc.cluster.local \
-  --set externalMongoDB.port=27017 \
-  --set externalRabbitMQ.host=rabbitmq.stackstorm.svc.cluster.local \
-  --set externalRabbitMQ.port=5672 \
-  --set externalRabbitMQ.username=admin \
-  --set externalRabbitMQ.password=stackstorm \
-  --set externalRedis.host=redis.stackstorm.svc.cluster.local \
-  --set externalRedis.port=6379"
+  --set-string st2.config='[database]
+host = mongodb.stackstorm.svc.cluster.local
+port = 27017
+db_name = st2
+
+[messaging]
+url = amqp://admin:stackstorm@rabbitmq.stackstorm.svc.cluster.local:5672
+
+[coordination]
+url = redis://redis.stackstorm.svc.cluster.local:6379'"
 
 # Execute Helm command
 echo "Executing Helm command:"

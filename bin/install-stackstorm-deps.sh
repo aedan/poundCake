@@ -7,8 +7,16 @@ NAMESPACE="${STACKSTORM_NAMESPACE:-stackstorm}"
 echo "Installing StackStorm dependencies in namespace: $NAMESPACE"
 echo ""
 
-# Create namespace if it doesn't exist
-kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 || kubectl create namespace "$NAMESPACE"
+# Create namespace with PodSecurity policies if it doesn't exist
+if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+    echo "Creating namespace $NAMESPACE with PodSecurity policies..."
+    kubectl create namespace "$NAMESPACE"
+    kubectl label namespace "$NAMESPACE" \
+        pod-security.kubernetes.io/enforce=baseline \
+        pod-security.kubernetes.io/audit=baseline \
+        pod-security.kubernetes.io/warn=baseline
+    echo "Namespace $NAMESPACE created with baseline PodSecurity policy"
+fi
 
 # Install MongoDB using official image
 echo "Deploying MongoDB..."
