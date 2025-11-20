@@ -65,4 +65,4 @@ LABEL org.opencontainers.image.title="PoundCake" \
       org.opencontainers.image.source="https://github.com/aedan/poundCake"
 
 # Run the application
-ENTRYPOINT ["poundcake"]
+CMD ["python", "-m", "poundcake.main"]
