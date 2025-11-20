@@ -4,7 +4,7 @@
 # Configuration
 NAMESPACE="${POUNDCAKE_NAMESPACE:-poundcake}"
 RELEASE_NAME="${POUNDCAKE_RELEASE_NAME:-poundcake}"
-CHART_REPO="oci://ghcr.io/aedan/poundcake"
+CHART_REPO="oci://ghcr.io/aedan/charts/poundcake"
 GLOBAL_OVERRIDES_DIR="/etc/genestack/helm-configs/global_overrides"
 SERVICE_CONFIG_DIR="/etc/genestack/helm-configs/poundcake"
 BASE_OVERRIDES="/opt/genestack/base-helm-configs/poundcake/poundcake-helm-overrides.yaml"

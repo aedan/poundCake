@@ -92,8 +92,8 @@ jobs:
       - name: Push Helm chart to OCI registry
         run: |
           for chart in .helm-packages/*.tgz; do
-            echo "Pushing $chart to oci://${{ env.REGISTRY }}/${{ github.repository_owner }}"
-            helm push "$chart" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
+            echo "Pushing $chart to oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts"
+            helm push "$chart" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts
           done
 
   create-release:
@@ -121,5 +121,5 @@ jobs:
 
             ### Helm Chart
             ```bash
-            helm install poundcake oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CHART_NAME }} --version ${{ github.ref_name }}
+            helm install poundcake oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/${{ env.CHART_NAME }} --version ${{ github.ref_name }}
             ```
