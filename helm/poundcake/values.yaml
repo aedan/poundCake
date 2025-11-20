@@ -91,8 +91,9 @@ config:
 
 # StackStorm connection settings
 stackstorm:
-  url: "https://stackstorm"
-  verifySsl: true
+  # URL to StackStorm API (defaults to service in stackstorm namespace)
+  url: "http://stackstorm-st2api.stackstorm.svc.cluster.local:9101"
+  verifySsl: false
   # API key or auth token (use secrets for production)
   apiKey: ""
   authToken: ""
@@ -105,10 +106,12 @@ stackstorm:
   # Auto-discovery settings
   autoDiscover: true
   discoverAcrossNamespaces: true
-  # Admin credentials for auto API key generation (optional)
+  # Admin credentials for auto API key generation
+  # By default, uses the stackstorm-admin secret created by install-stackstorm.sh
+  # The secret should exist in the same namespace as PoundCake
   adminUser: "st2admin"
   adminPassword: ""
-  adminPasswordSecret: ""
+  adminPasswordSecret: "stackstorm-admin"
   adminPasswordSecretKey: "password"
 
 # Alert-to-action mappings
