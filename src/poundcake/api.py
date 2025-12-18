@@ -624,6 +624,30 @@ def get_management_ui_html() -> str:
         .attempt-item { padding: 8px; border-left: 3px solid #ddd; margin-bottom: 5px; background: white; }
         .attempt-item.success { border-color: #27ae60; }
         .attempt-item.failed { border-color: #e74c3c; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .dashboard-card { background: #f8f9fa; padding: 20px; border-radius: 4px; border-left: 4px solid #3498db; }
+        .dashboard-card h3 { margin-bottom: 15px; font-size: 18px; color: #2c3e50; }
+        .dashboard-card.healthy { border-color: #27ae60; }
+        .dashboard-card.warning { border-color: #f39c12; }
+        .dashboard-card.error { border-color: #e74c3c; }
+        .metric-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd; }
+        .metric-row:last-child { border-bottom: none; }
+        .metric-label { color: #666; font-size: 14px; }
+        .metric-value { font-weight: 600; font-size: 16px; }
+        .health-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+        .health-indicator.healthy { background: #27ae60; }
+        .health-indicator.unhealthy { background: #e74c3c; }
+        .health-indicator.unknown { background: #95a5a6; }
+        .config-section { margin-bottom: 25px; }
+        .config-section h3 { margin-bottom: 15px; font-size: 18px; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px; }
+        .config-item { display: grid; grid-template-columns: 200px 1fr; padding: 12px; background: #f8f9fa; margin-bottom: 8px; border-radius: 4px; }
+        .config-item .key { font-weight: 600; color: #555; }
+        .config-item .value { color: #333; font-family: monospace; }
+        .activity-feed { max-height: 400px; overflow-y: auto; }
+        .activity-item { padding: 12px; border-left: 3px solid #3498db; margin-bottom: 8px; background: #f8f9fa; }
+        .activity-item.success { border-color: #27ae60; }
+        .activity-item.failed { border-color: #e74c3c; }
+        .activity-item .time { font-size: 12px; color: #666; }
     </style>
 </head>
 <body>
@@ -636,14 +660,32 @@ def get_management_ui_html() -> str:
 
     <div class="container">
         <div class="tabs">
-            <button class="tab active" onclick="showTab('alerts')">Alert Status</button>
+            <button class="tab active" onclick="showTab('dashboard')">Dashboard</button>
+            <button class="tab" onclick="showTab('alerts')">Alert Status</button>
             <button class="tab" onclick="showTab('prometheus')">Prometheus Rules</button>
             <button class="tab" onclick="showTab('mappings')">Mappings</button>
             <button class="tab" onclick="showTab('actions')">StackStorm Actions</button>
             <button class="tab" onclick="showTab('history')">Execution History</button>
+            <button class="tab" onclick="showTab('health')">Health</button>
+            <button class="tab" onclick="showTab('settings')">Settings</button>
         </div>
 
-        <div id="alerts" class="panel active">
+        <div id="dashboard" class="panel active">
+            <h2 style="margin-bottom: 20px;">System Overview</h2>
+            <div class="dashboard-grid" id="dashboard-metrics"></div>
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3>Recent Activity</h3>
+                    <div class="activity-feed" id="recent-activity"></div>
+                </div>
+                <div class="dashboard-card">
+                    <h3>Quick Stats</h3>
+                    <div id="quick-stats"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="alerts" class="panel">
             <div class="filter-bar">
                 <select id="status-filter" onchange="loadAlerts()">
                     <option value="">All Statuses</option>
@@ -754,6 +796,16 @@ def get_management_ui_html() -> str:
                 </thead>
                 <tbody id="history-table"></tbody>
             </table>
+        </div>
+
+        <div id="health" class="panel">
+            <h2 style="margin-bottom: 20px;">System Health</h2>
+            <div class="dashboard-grid" id="health-components"></div>
+        </div>
+
+        <div id="settings" class="panel">
+            <h2 style="margin-bottom: 20px;">Configuration</h2>
+            <div id="settings-content"></div>
         </div>
     </div>
 
@@ -872,11 +924,14 @@ def get_management_ui_html() -> str:
             document.querySelector(`[onclick="showTab('${tab}')"]`).classList.add('active');
             document.getElementById(tab).classList.add('active');
 
+            if (tab === 'dashboard') loadDashboard();
             if (tab === 'alerts') { loadAlerts(); loadStats(); }
             if (tab === 'prometheus') loadPrometheusRules();
             if (tab === 'mappings') loadMappings();
             if (tab === 'actions') { loadPacks(); loadActions(); }
             if (tab === 'history') loadHistory();
+            if (tab === 'health') loadHealth();
+            if (tab === 'settings') loadSettings();
         }
 
         // Alert tracking functions
@@ -1493,6 +1548,226 @@ actions:
             document.getElementById('edit-action-modal').classList.remove('active');
         }
 
+        // Dashboard functions
+        async function loadDashboard() {
+            // Load health data for dashboard cards
+            const healthRes = await fetch('/health');
+            const health = await healthRes.json();
+
+            // Load alert stats
+            const statsRes = await fetch('/alerts/stats');
+            const stats = await statsRes.json();
+
+            // Load recent history
+            const historyRes = await fetch('/remediations?limit=10');
+            const history = await historyRes.json();
+
+            // Update dashboard metrics
+            const metricsDiv = document.getElementById('dashboard-metrics');
+            const stackstormClass = health.stackstorm === 'healthy' ? 'healthy' : 'error';
+            const stateClass = health.state_store === 'healthy' ? 'healthy' : 'error';
+            const overallClass = health.status === 'healthy' ? 'healthy' : (health.status === 'degraded' ? 'warning' : 'error');
+
+            metricsDiv.innerHTML = `
+                <div class="dashboard-card ${overallClass}">
+                    <h3>System Status</h3>
+                    <div class="metric-row">
+                        <span class="metric-label">Overall</span>
+                        <span class="metric-value">${health.status.toUpperCase()}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Instance</span>
+                        <span class="metric-value">${health.instance_id || 'Unknown'}</span>
+                    </div>
+                </div>
+                <div class="dashboard-card ${stackstormClass}">
+                    <h3>StackStorm</h3>
+                    <div class="metric-row">
+                        <span class="metric-label">Status</span>
+                        <span class="metric-value">${health.stackstorm.toUpperCase()}</span>
+                    </div>
+                </div>
+                <div class="dashboard-card ${stateClass}">
+                    <h3>State Store</h3>
+                    <div class="metric-row">
+                        <span class="metric-label">Status</span>
+                        <span class="metric-value">${health.state_store.toUpperCase()}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Total Alerts</span>
+                        <span class="metric-value">${stats.total}</span>
+                    </div>
+                </div>
+            `;
+
+            // Update recent activity
+            const activityDiv = document.getElementById('recent-activity');
+            if (history.remediations.length === 0) {
+                activityDiv.innerHTML = '<p style="color: #666; text-align: center;">No recent activity</p>';
+            } else {
+                activityDiv.innerHTML = history.remediations.slice(0, 5).map(r => {
+                    const statusClass = r.status === 'success' ? 'success' : 'failed';
+                    const time = new Date(r.started_at).toLocaleString();
+                    return `
+                        <div class="activity-item ${statusClass}">
+                            <div><strong>${r.alert_name}</strong> → ${r.action_name}</div>
+                            <div class="time">${time}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Update quick stats
+            const quickStatsDiv = document.getElementById('quick-stats');
+            quickStatsDiv.innerHTML = `
+                <div class="metric-row">
+                    <span class="metric-label">Active Alerts</span>
+                    <span class="metric-value">${stats.by_status.remediating || 0}</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Resolved Today</span>
+                    <span class="metric-value">${stats.by_status.resolved || 0}</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Total Tracked</span>
+                    <span class="metric-value">${stats.total}</span>
+                </div>
+            `;
+        }
+
+        // Health functions
+        async function loadHealth() {
+            const res = await fetch('/health');
+            const health = await res.json();
+
+            const componentsDiv = document.getElementById('health-components');
+            const stackstormClass = health.stackstorm === 'healthy' ? 'healthy' : 'error';
+            const stateClass = health.state_store === 'healthy' ? 'healthy' : 'error';
+            const overallClass = health.status === 'healthy' ? 'healthy' : (health.status === 'degraded' ? 'warning' : 'error');
+
+            componentsDiv.innerHTML = `
+                <div class="dashboard-card ${overallClass}">
+                    <h3><span class="health-indicator ${overallClass}"></span>Overall System</h3>
+                    <div class="metric-row">
+                        <span class="metric-label">Status</span>
+                        <span class="metric-value">${health.status.toUpperCase()}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Instance ID</span>
+                        <span class="metric-value" style="font-size: 12px;">${health.instance_id || 'Unknown'}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Timestamp</span>
+                        <span class="metric-value" style="font-size: 12px;">${new Date().toLocaleString()}</span>
+                    </div>
+                </div>
+                <div class="dashboard-card ${stackstormClass}">
+                    <h3><span class="health-indicator ${stackstormClass}"></span>StackStorm</h3>
+                    <div class="metric-row">
+                        <span class="metric-label">Connection</span>
+                        <span class="metric-value">${health.stackstorm.toUpperCase()}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">API Accessible</span>
+                        <span class="metric-value">${health.stackstorm === 'healthy' ? 'Yes' : 'No'}</span>
+                    </div>
+                </div>
+                <div class="dashboard-card ${stateClass}">
+                    <h3><span class="health-indicator ${stateClass}"></span>State Store</h3>
+                    <div class="metric-row">
+                        <span class="metric-label">Status</span>
+                        <span class="metric-value">${health.state_store.toUpperCase()}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Type</span>
+                        <span class="metric-value">${health.state_store === 'healthy' ? 'Connected' : 'Unavailable'}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Settings functions
+        async function loadSettings() {
+            const res = await fetch('/api/settings');
+            const settings = await res.json();
+
+            const contentDiv = document.getElementById('settings-content');
+
+            let gitSection = '';
+            if (settings.git_enabled) {
+                gitSection = `
+                    <div class="config-section">
+                        <h3>Git Configuration</h3>
+                        <div class="config-item">
+                            <div class="key">Enabled</div>
+                            <div class="value">Yes</div>
+                        </div>
+                        <div class="config-item">
+                            <div class="key">Provider</div>
+                            <div class="value">${settings.git_provider || 'Not configured'}</div>
+                        </div>
+                        <div class="config-item">
+                            <div class="key">Repository</div>
+                            <div class="value">${settings.git_repo_url || 'Not configured'}</div>
+                        </div>
+                        <div class="config-item">
+                            <div class="key">Branch</div>
+                            <div class="value">${settings.git_branch || 'Not configured'}</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                gitSection = `
+                    <div class="config-section">
+                        <h3>Git Configuration</h3>
+                        <div class="config-item">
+                            <div class="key">Enabled</div>
+                            <div class="value">No</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            let prometheusSection = '';
+            if (settings.prometheus_use_crds) {
+                prometheusSection = `
+                    <div class="config-section">
+                        <h3>Prometheus Configuration</h3>
+                        <div class="config-item">
+                            <div class="key">CRD Mode</div>
+                            <div class="value">Enabled</div>
+                        </div>
+                        <div class="config-item">
+                            <div class="key">CRD Namespace</div>
+                            <div class="value">${settings.prometheus_crd_namespace || 'Not configured'}</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                prometheusSection = `
+                    <div class="config-section">
+                        <h3>Prometheus Configuration</h3>
+                        <div class="config-item">
+                            <div class="key">CRD Mode</div>
+                            <div class="value">Disabled</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            contentDiv.innerHTML = `
+                <div class="config-section">
+                    <h3>StackStorm Configuration</h3>
+                    <div class="config-item">
+                        <div class="key">API URL</div>
+                        <div class="value">${settings.stackstorm_url || 'Not configured'}</div>
+                    </div>
+                </div>
+                ${prometheusSection}
+                ${gitSection}
+            `;
+        }
+
         // Load js-yaml from CDN
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js';
@@ -1500,8 +1775,7 @@ actions:
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
-            loadAlerts();
-            loadStats();
+            loadDashboard(); // Load dashboard by default
             toggleAutoRefresh(); // Start auto-refresh
         });
     </script>
