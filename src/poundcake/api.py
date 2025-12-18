@@ -575,7 +575,8 @@ def get_management_ui_html() -> str:
         .header-stats { display: flex; gap: 20px; margin-top: 10px; font-size: 14px; }
         .header-stats span { opacity: 0.9; }
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-        .tab { padding: 10px 20px; background: #ddd; border: none; cursor: pointer; border-radius: 4px; }
+        .tab { padding: 10px 20px; background: #ddd; border: none; cursor: pointer; border-radius: 4px; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+        .tab:hover:not(.active) { background: #bbb; }
         .tab.active { background: #3498db; color: white; }
         .panel { display: none; background: white; padding: 20px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .panel.active { display: block; }
