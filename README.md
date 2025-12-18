@@ -7,7 +7,9 @@ An extensible auto-remediation framework that bridges Prometheus Alertmanager wi
 - **Webhook Receiver**: Receives alerts from Prometheus Alertmanager
 - **StackStorm Integration**: Executes remediation actions via StackStorm API
 - **Prometheus Rule Management**: Edit and manage Prometheus alert rules via CRDs and GitOps
+- **Management UI**: Comprehensive web interface with Dashboard, Health monitoring, and Settings
 - **Command-Line Interface**: Powerful CLI (`pcake`) for managing alerts and rules
+- **Alert Tracking**: Real-time status tracking through alert lifecycle (received → remediating → resolved)
 - **YAML Configuration**: Define alert-to-action mappings in YAML files
 - **Handler Registry**: Extensible handler system for custom remediation logic
 - **Built-in Handlers**: Pre-built handlers for common scenarios (CPU, disk, memory, services)
@@ -239,7 +241,7 @@ helm install poundcake oci://ghcr.io/aedan/poundcake \
   --set stackstorm.apiKey=your-st2-api-key
 
 # Or install a specific version
-helm install poundcake oci://ghcr.io/aedan/poundcake --version 0.1.0 \
+helm install poundcake oci://ghcr.io/aedan/poundcake --version 0.2.0 \
   --namespace poundcake \
   --create-namespace \
   --set stackstorm.apiKey=your-st2-api-key
@@ -257,10 +259,10 @@ The Dockerfile is used to build images for the Helm chart deployment:
 
 ```bash
 # Build the image
-docker build -t ghcr.io/aedan/poundcake:0.1.0 .
+docker build -t ghcr.io/aedan/poundcake:0.2.0 .
 
 # Push to GitHub Container Registry
-docker push ghcr.io/aedan/poundcake:0.1.0
+docker push ghcr.io/aedan/poundcake:0.2.0
 ```
 
 ### Using a Specific Image Version
@@ -268,10 +270,10 @@ docker push ghcr.io/aedan/poundcake:0.1.0
 ```bash
 # The chart automatically uses the correct image version
 # Override if needed:
-helm install poundcake oci://ghcr.io/aedan/poundcake --version 0.1.0 \
+helm install poundcake oci://ghcr.io/aedan/poundcake --version 0.2.0 \
   --namespace poundcake \
   --create-namespace \
-  --set image.tag=0.1.0 \
+  --set image.tag=0.2.0 \
   --set stackstorm.apiKey=your-st2-api-key
 ```
 
@@ -394,13 +396,55 @@ helm install poundcake oci://ghcr.io/aedan/poundcake \
 | `remediated` | All actions completed |
 | `resolved` | Alert cleared by Alertmanager |
 
-#### Alert Status UI
+#### Management UI
 
-Access the web UI at `/ui` to view:
+Access the web UI at `/ui` to manage your PoundCake instance:
+
+**Dashboard Tab** (Default Landing Page):
+- System status overview with health indicators
+- Real-time metrics for StackStorm and State Store connectivity
+- Recent remediation activity feed
+- Quick stats showing active alerts and resolution counts
+
+**Alert Status Tab**:
 - Real-time alert status with auto-refresh (5 seconds)
-- Filter alerts by status
-- Expandable rows showing remediation attempts
-- Statistics dashboard
+- Filter alerts by status (received, pending, remediating, remediated, resolved)
+- Expandable rows showing detailed remediation attempts
+- Statistics dashboard with alert counts by status
+
+**Prometheus Rules Tab**:
+- View and manage Prometheus alert rules via CRDs
+- Create, edit, and delete rules through the UI
+- GitOps integration for automatic PR creation
+- Filter by state (firing/pending/inactive)
+
+**Mappings Tab**:
+- Create and edit alert-to-action mappings
+- Import/export YAML configurations
+- Visual mapping builder
+
+**StackStorm Actions Tab**:
+- Browse available StackStorm actions by pack
+- View action parameters and documentation
+- Create and edit custom actions
+- Quick integration with mappings
+
+**Execution History Tab**:
+- View past remediation executions
+- Filter by status and time range
+- Execution details and timing information
+
+**Health Tab**:
+- System component health checks
+- Real-time status of StackStorm connection
+- State Store connectivity monitoring
+- Overall system health indicators
+
+**Settings Tab**:
+- View current configuration
+- StackStorm API endpoint settings
+- Prometheus CRD configuration
+- Git repository integration settings
 
 ### Configure Alertmanager
 
