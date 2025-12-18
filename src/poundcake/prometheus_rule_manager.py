@@ -98,9 +98,7 @@ class PrometheusRuleManager:
 
         # Mode 2: Git Mode (persistence and audit trail)
         if self.settings.git_enabled:
-            git_result = await self._update_rule_in_git(
-                rule_name, group_name, file_name, rule_data
-            )
+            git_result = await self._update_rule_in_git(rule_name, group_name, file_name, rule_data)
 
             if git_result.get("status") == "error":
                 if self.settings.prometheus_use_crds:
@@ -150,9 +148,7 @@ class PrometheusRuleManager:
                         }
                     ]
                 }
-                updated_yaml = yaml.dump(
-                    rules_yaml, default_flow_style=False, sort_keys=False
-                )
+                updated_yaml = yaml.dump(rules_yaml, default_flow_style=False, sort_keys=False)
             else:
                 if not full_path.exists():
                     return {
@@ -185,9 +181,7 @@ class PrometheusRuleManager:
                         "message": f"Rule {rule_name} not found in group {group_name}",
                     }
 
-                updated_yaml = yaml.dump(
-                    rules_yaml, default_flow_style=False, sort_keys=False
-                )
+                updated_yaml = yaml.dump(rules_yaml, default_flow_style=False, sort_keys=False)
 
             commit_message = (
                 f"Update Prometheus alert rule: {rule_name}\n\n"
@@ -296,9 +290,7 @@ class PrometheusRuleManager:
 
         # Mode 2: Git Mode (persistence and audit trail)
         if self.settings.git_enabled:
-            git_result = await self._create_rule_in_git(
-                rule_name, group_name, file_name, rule_data
-            )
+            git_result = await self._create_rule_in_git(rule_name, group_name, file_name, rule_data)
 
             if git_result.get("status") == "error":
                 if self.settings.prometheus_use_crds:
@@ -375,9 +367,7 @@ class PrometheusRuleManager:
                         }
                     )
 
-            updated_yaml = yaml.dump(
-                rules_yaml, default_flow_style=False, sort_keys=False
-            )
+            updated_yaml = yaml.dump(rules_yaml, default_flow_style=False, sort_keys=False)
 
             commit_message = (
                 f"Add Prometheus alert rule: {rule_name}\n\n"
@@ -467,9 +457,7 @@ class PrometheusRuleManager:
         # Mode 1: CRD Mode (immediate effect via Prometheus Operator)
         if self.settings.prometheus_use_crds:
             crd_name = file_name.replace(".yaml", "").replace(".yml", "")
-            crd_result = await self.crd_manager.delete_rule(
-                rule_name, group_name, crd_name
-            )
+            crd_result = await self.crd_manager.delete_rule(rule_name, group_name, crd_name)
 
             if crd_result.get("status") == "error":
                 return crd_result
@@ -484,9 +472,7 @@ class PrometheusRuleManager:
 
         # Mode 2: Git Mode (persistence and audit trail)
         if self.settings.git_enabled:
-            git_result = await self._delete_rule_in_git(
-                rule_name, group_name, file_name
-            )
+            git_result = await self._delete_rule_in_git(rule_name, group_name, file_name)
 
             if git_result.get("status") == "error":
                 if self.settings.prometheus_use_crds:
@@ -570,9 +556,7 @@ class PrometheusRuleManager:
                         "message": f"Rule {rule_name} not found in group {group_name}",
                     }
 
-                updated_yaml = yaml.dump(
-                    rules_yaml, default_flow_style=False, sort_keys=False
-                )
+                updated_yaml = yaml.dump(rules_yaml, default_flow_style=False, sort_keys=False)
 
                 success, branch_name = await self.git_manager.commit_and_push_changes(
                     file_path, updated_yaml, commit_message

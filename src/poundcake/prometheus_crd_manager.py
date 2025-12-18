@@ -119,13 +119,9 @@ class PrometheusCRDManager:
             existing = await self.get_prometheus_rule(crd_name)
 
             if existing:
-                return await self._update_rule_in_crd(
-                    existing, rule_name, group_name, rule_data
-                )
+                return await self._update_rule_in_crd(existing, rule_name, group_name, rule_data)
             else:
-                return await self._create_rule_crd(
-                    crd_name, group_name, rule_name, rule_data
-                )
+                return await self._create_rule_crd(crd_name, group_name, rule_name, rule_data)
         except Exception as e:
             logger.error("Failed to create/update PrometheusRule", error=str(e))
             return {

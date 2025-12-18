@@ -130,12 +130,8 @@ class GitManager:
 
             repo.index.remove([file_path])
 
-            repo.config_writer().set_value(
-                "user", "name", self.settings.git_user_name
-            ).release()
-            repo.config_writer().set_value(
-                "user", "email", self.settings.git_user_email
-            ).release()
+            repo.config_writer().set_value("user", "name", self.settings.git_user_name).release()
+            repo.config_writer().set_value("user", "email", self.settings.git_user_email).release()
 
             repo.index.commit(commit_message)
 
@@ -201,12 +197,8 @@ class GitManager:
 
             repo.index.add([file_path])
 
-            repo.config_writer().set_value(
-                "user", "name", self.settings.git_user_name
-            ).release()
-            repo.config_writer().set_value(
-                "user", "email", self.settings.git_user_email
-            ).release()
+            repo.config_writer().set_value("user", "name", self.settings.git_user_name).release()
+            repo.config_writer().set_value("user", "email", self.settings.git_user_email).release()
 
             repo.index.commit(commit_message)
 
@@ -316,9 +308,7 @@ class GitManager:
             repo_parts = repo_url.split("gitlab.com/")[-1]
             project_path = repo_parts.replace("/", "%2F")
 
-            api_url = (
-                f"https://gitlab.com/api/v4/projects/{project_path}/merge_requests"
-            )
+            api_url = f"https://gitlab.com/api/v4/projects/{project_path}/merge_requests"
 
             headers = {
                 "PRIVATE-TOKEN": self.settings.git_token,

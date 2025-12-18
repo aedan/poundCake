@@ -543,7 +543,9 @@ def create_app() -> FastAPI:
             "git_repo_url": settings.git_repo_url if settings.git_enabled else None,
             "git_branch": settings.git_branch if settings.git_enabled else None,
             "prometheus_use_crds": settings.prometheus_use_crds,
-            "prometheus_crd_namespace": settings.prometheus_crd_namespace if settings.prometheus_use_crds else None,
+            "prometheus_crd_namespace": (
+                settings.prometheus_crd_namespace if settings.prometheus_use_crds else None
+            ),
             "stackstorm_url": settings.stackstorm_url,
         }
 
