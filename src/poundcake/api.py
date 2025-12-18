@@ -1241,7 +1241,9 @@ def get_management_ui_html() -> str:
                 closeEditRuleModal();
                 loadPrometheusRules();
 
-                let message = 'Rule updated successfully!\n\n';
+                let message = `Rule updated successfully!
+
+`;
 
                 // CRD result
                 if (result.crd) {
@@ -1280,7 +1282,9 @@ def get_management_ui_html() -> str:
                 const result = await res.json();
                 loadPrometheusRules();
 
-                let message = 'Rule deleted successfully!\n\n';
+                let message = `Rule deleted successfully!
+
+`;
 
                 // CRD result
                 if (result.crd) {
