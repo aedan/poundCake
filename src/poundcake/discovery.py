@@ -140,7 +140,7 @@ class StackStormDiscovery:
                     },
                     params={"limit": 1},
                 )
-                return response.status_code == 200  # type: ignore[no-any-return]
+                return response.status_code == 200
 
             except Exception as e:
                 logger.error("API key validation failed", error=str(e))

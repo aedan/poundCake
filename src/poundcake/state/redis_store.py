@@ -3,7 +3,7 @@
 import json
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import AsyncIterator
+from typing import Any, AsyncIterator
 
 import redis.asyncio as redis
 import structlog
@@ -42,7 +42,7 @@ class RedisStateStore(StateStore):
         self._password = password
         self._alert_ttl_hours = alert_ttl_hours
         self._lock_timeout = lock_timeout
-        self._client: "redis.Redis[str] | None" = None
+        self._client: redis.Redis[str] | None = None
 
     async def connect(self) -> None:
         """Connect to Redis."""

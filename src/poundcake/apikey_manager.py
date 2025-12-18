@@ -134,7 +134,7 @@ class APIKeyManager:
                     },
                     params={"limit": 1},
                 )
-                return response.status_code == 200  # type: ignore[no-any-return]
+                return response.status_code == 200
 
             except Exception as e:
                 logger.debug("API key validation failed", error=str(e))
