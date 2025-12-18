@@ -335,6 +335,121 @@ class StackStormActionManager:
                 return result
             return []
 
+    async def update_action(
+        self,
+        action_ref: str,
+        action_data: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """
+        Update a StackStorm action definition.
+
+        Args:
+            action_ref: Action reference (pack.action)
+            action_data: Updated action definition
+
+        Returns:
+            Updated action definition or None if failed
+        """
+        import httpx
+
+        headers = await self._client._get_headers()
+
+        async with httpx.AsyncClient(
+            verify=self._client.verify_ssl,
+            timeout=httpx.Timeout(30),
+        ) as client:
+            response = await client.put(
+                f"{self._client.base_url}/v1/actions/{action_ref}",
+                headers=headers,
+                json=action_data,
+            )
+
+            if response.status_code == 200:
+                result: dict[str, Any] = response.json()
+                logger.info("Updated StackStorm action", action_ref=action_ref)
+                return result
+            else:
+                logger.error(
+                    "Failed to update StackStorm action",
+                    action_ref=action_ref,
+                    status_code=response.status_code,
+                    response=response.text,
+                )
+                return None
+
+    async def create_action(
+        self,
+        action_data: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """
+        Create a new StackStorm action.
+
+        Args:
+            action_data: Action definition
+
+        Returns:
+            Created action definition or None if failed
+        """
+        import httpx
+
+        headers = await self._client._get_headers()
+
+        async with httpx.AsyncClient(
+            verify=self._client.verify_ssl,
+            timeout=httpx.Timeout(30),
+        ) as client:
+            response = await client.post(
+                f"{self._client.base_url}/v1/actions",
+                headers=headers,
+                json=action_data,
+            )
+
+            if response.status_code == 201:
+                result: dict[str, Any] = response.json()
+                logger.info("Created StackStorm action", action_ref=result.get("ref"))
+                return result
+            else:
+                logger.error(
+                    "Failed to create StackStorm action",
+                    status_code=response.status_code,
+                    response=response.text,
+                )
+                return None
+
+    async def delete_action(self, action_ref: str) -> bool:
+        """
+        Delete a StackStorm action.
+
+        Args:
+            action_ref: Action reference (pack.action)
+
+        Returns:
+            True if successful
+        """
+        import httpx
+
+        headers = await self._client._get_headers()
+
+        async with httpx.AsyncClient(
+            verify=self._client.verify_ssl,
+            timeout=httpx.Timeout(30),
+        ) as client:
+            response = await client.delete(
+                f"{self._client.base_url}/v1/actions/{action_ref}",
+                headers=headers,
+            )
+
+            if response.status_code == 204:
+                logger.info("Deleted StackStorm action", action_ref=action_ref)
+                return True
+            else:
+                logger.error(
+                    "Failed to delete StackStorm action",
+                    action_ref=action_ref,
+                    status_code=response.status_code,
+                )
+                return False
+
 
 # Global manager instance
 _mapping_manager: MappingManager | None = None

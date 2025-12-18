@@ -418,6 +418,135 @@ def create_app() -> FastAPI:
         executions = await action_manager.get_execution_history(limit, action)
         return {"executions": executions}
 
+    @app.put("/api/stackstorm/actions/{action_ref:path}")
+    async def update_stackstorm_action(
+        action_ref: str, action_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Update a StackStorm action definition."""
+        from poundcake.handlers import get_registry
+
+        registry = get_registry()
+        action_manager = StackStormActionManager(registry.stackstorm_client)
+        result = await action_manager.update_action(action_ref, action_data)
+        if not result:
+            raise HTTPException(status_code=400, detail="Failed to update action")
+        return result
+
+    @app.post("/api/stackstorm/actions")
+    async def create_stackstorm_action(action_data: dict[str, Any]) -> dict[str, Any]:
+        """Create a new StackStorm action."""
+        from poundcake.handlers import get_registry
+
+        registry = get_registry()
+        action_manager = StackStormActionManager(registry.stackstorm_client)
+        result = await action_manager.create_action(action_data)
+        if not result:
+            raise HTTPException(status_code=400, detail="Failed to create action")
+        return result
+
+    @app.delete("/api/stackstorm/actions/{action_ref:path}")
+    async def delete_stackstorm_action(action_ref: str) -> dict[str, Any]:
+        """Delete a StackStorm action."""
+        from poundcake.handlers import get_registry
+
+        registry = get_registry()
+        action_manager = StackStormActionManager(registry.stackstorm_client)
+        success = await action_manager.delete_action(action_ref)
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to delete action")
+        return {"status": "deleted", "action_ref": action_ref}
+
+    # Prometheus endpoints
+    @app.get("/api/prometheus/rules")
+    async def list_prometheus_rules() -> dict[str, Any]:
+        """List Prometheus alert rules."""
+        from poundcake.prometheus import get_prometheus_client
+
+        prometheus = get_prometheus_client()
+        rules = await prometheus.get_rules()
+        return {"rules": rules}
+
+    @app.get("/api/prometheus/rule-groups")
+    async def list_prometheus_rule_groups() -> dict[str, Any]:
+        """List Prometheus rule groups."""
+        from poundcake.prometheus import get_prometheus_client
+
+        prometheus = get_prometheus_client()
+        groups = await prometheus.get_rule_groups()
+        return {"groups": groups}
+
+    @app.get("/api/prometheus/health")
+    async def prometheus_health() -> dict[str, Any]:
+        """Check Prometheus health."""
+        from poundcake.prometheus import get_prometheus_client
+
+        prometheus = get_prometheus_client()
+        health = await prometheus.health_check()
+        return health
+
+    @app.put("/api/prometheus/rules/{rule_name}")
+    async def update_prometheus_rule(
+        rule_name: str,
+        group_name: str,
+        file_name: str,
+        rule_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Update a Prometheus alert rule."""
+        from poundcake.prometheus_rule_manager import get_prometheus_rule_manager
+
+        manager = get_prometheus_rule_manager()
+        result = await manager.update_rule(rule_name, group_name, file_name, rule_data)
+        if result.get("status") == "error":
+            raise HTTPException(status_code=400, detail=result.get("message"))
+        return result
+
+    @app.post("/api/prometheus/rules")
+    async def create_prometheus_rule(
+        rule_name: str,
+        group_name: str,
+        file_name: str,
+        rule_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Create a new Prometheus alert rule."""
+        from poundcake.prometheus_rule_manager import get_prometheus_rule_manager
+
+        manager = get_prometheus_rule_manager()
+        result = await manager.create_rule(rule_name, group_name, file_name, rule_data)
+        if result.get("status") == "error":
+            raise HTTPException(status_code=400, detail=result.get("message"))
+        return result
+
+    @app.delete("/api/prometheus/rules/{rule_name}")
+    async def delete_prometheus_rule(
+        rule_name: str,
+        group_name: str,
+        file_name: str,
+    ) -> dict[str, Any]:
+        """Delete a Prometheus alert rule."""
+        from poundcake.prometheus_rule_manager import get_prometheus_rule_manager
+
+        manager = get_prometheus_rule_manager()
+        result = await manager.delete_rule(rule_name, group_name, file_name)
+        if result.get("status") == "error":
+            raise HTTPException(status_code=400, detail=result.get("message"))
+        return result
+
+    @app.get("/api/settings")
+    async def get_settings_info() -> dict[str, Any]:
+        """Get PoundCake settings information (non-sensitive)."""
+        from poundcake.config import get_settings
+
+        settings = get_settings()
+        return {
+            "git_enabled": settings.git_enabled,
+            "git_provider": settings.git_provider if settings.git_enabled else None,
+            "git_repo_url": settings.git_repo_url if settings.git_enabled else None,
+            "git_branch": settings.git_branch if settings.git_enabled else None,
+            "prometheus_use_crds": settings.prometheus_use_crds,
+            "prometheus_crd_namespace": settings.prometheus_crd_namespace if settings.prometheus_use_crds else None,
+            "stackstorm_url": settings.stackstorm_url,
+        }
+
     # Web UI
     @app.get("/ui", response_class=HTMLResponse)
     async def ui() -> str:
@@ -506,6 +635,7 @@ def get_management_ui_html() -> str:
     <div class="container">
         <div class="tabs">
             <button class="tab active" onclick="showTab('alerts')">Alert Status</button>
+            <button class="tab" onclick="showTab('prometheus')">Prometheus Rules</button>
             <button class="tab" onclick="showTab('mappings')">Mappings</button>
             <button class="tab" onclick="showTab('actions')">StackStorm Actions</button>
             <button class="tab" onclick="showTab('history')">Execution History</button>
@@ -543,6 +673,33 @@ def get_management_ui_html() -> str:
             </table>
         </div>
 
+        <div id="prometheus" class="panel">
+            <div class="filter-bar">
+                <select id="prom-state-filter" onchange="loadPrometheusRules()">
+                    <option value="">All States</option>
+                    <option value="firing">Firing</option>
+                    <option value="pending">Pending</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+                <button class="btn btn-primary btn-sm" onclick="loadPrometheusRules()">Refresh</button>
+                <span id="persistence-status" style="margin-left: 10px; font-size: 12px; color: #666;"></span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Alert Name</th>
+                        <th>Query</th>
+                        <th>Duration</th>
+                        <th>State</th>
+                        <th>Group</th>
+                        <th>File</th>
+                        <th>Operations</th>
+                    </tr>
+                </thead>
+                <tbody id="prometheus-table"></tbody>
+            </table>
+        </div>
+
         <div id="mappings" class="panel">
             <div style="margin-bottom: 15px;">
                 <button class="btn btn-primary" onclick="showCreateModal()">Create Mapping</button>
@@ -564,11 +721,22 @@ def get_management_ui_html() -> str:
 
         <div id="actions" class="panel">
             <div style="margin-bottom: 15px;">
-                <select id="pack-filter" onchange="loadActions()">
+                <button class="btn btn-primary" onclick="showCreateActionModal()">Create Action</button>
+                <select id="pack-filter" onchange="loadActions()" style="margin-left: 10px;">
                     <option value="">All Packs</option>
                 </select>
             </div>
-            <div class="actions-list" id="actions-list"></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Action Reference</th>
+                        <th>Description</th>
+                        <th>Pack</th>
+                        <th>Operations</th>
+                    </tr>
+                </thead>
+                <tbody id="actions-table"></tbody>
+            </table>
         </div>
 
         <div id="history" class="panel">
@@ -640,9 +808,60 @@ def get_management_ui_html() -> str:
         </div>
     </div>
 
+    <!-- Edit Action Modal -->
+    <div id="edit-action-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="action-modal-title">Edit Action</h3>
+            <form id="action-form" onsubmit="saveAction(event)">
+                <div class="form-group">
+                    <label>Action Reference (pack.action)</label>
+                    <input type="text" id="action-ref" required>
+                </div>
+                <div class="form-group">
+                    <label>Action Definition (JSON)</label>
+                    <textarea id="action-data" required style="height: 400px;"></textarea>
+                </div>
+                <div style="text-align: right;">
+                    <button type="button" class="btn" onclick="closeEditActionModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Prometheus Rule Modal -->
+    <div id="edit-rule-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="rule-modal-title">Edit Prometheus Rule</h3>
+            <form id="rule-form" onsubmit="savePrometheusRule(event)">
+                <div class="form-group">
+                    <label>Alert Name</label>
+                    <input type="text" id="rule-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Group Name</label>
+                    <input type="text" id="rule-group" required>
+                </div>
+                <div class="form-group">
+                    <label>File Name</label>
+                    <input type="text" id="rule-file" required>
+                </div>
+                <div class="form-group">
+                    <label>Rule Definition (YAML)</label>
+                    <textarea id="rule-data" required style="height: 400px;"></textarea>
+                </div>
+                <div style="text-align: right;">
+                    <button type="button" class="btn" onclick="closeEditRuleModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save & Create PR</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         let currentAction = null;
         let editMode = false;
+        let editActionMode = false;
         let autoRefreshInterval = null;
 
         function showTab(tab) {
@@ -652,6 +871,7 @@ def get_management_ui_html() -> str:
             document.getElementById(tab).classList.add('active');
 
             if (tab === 'alerts') { loadAlerts(); loadStats(); }
+            if (tab === 'prometheus') loadPrometheusRules();
             if (tab === 'mappings') loadMappings();
             if (tab === 'actions') { loadPacks(); loadActions(); }
             if (tab === 'history') loadHistory();
@@ -822,17 +1042,217 @@ def get_management_ui_html() -> str:
             const url = pack ? `/api/stackstorm/actions?pack=${pack}` : '/api/stackstorm/actions';
             const res = await fetch(url);
             const data = await res.json();
-            const list = document.getElementById('actions-list');
-            list.innerHTML = '';
+            const tbody = document.getElementById('actions-table');
+            tbody.innerHTML = '';
+
+            if (data.actions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #666;">No actions found</td></tr>';
+                return;
+            }
 
             data.actions.forEach(action => {
-                list.innerHTML += `
-                    <div class="action-item" onclick="showAction('${action.ref}')">
-                        <strong>${action.ref}</strong>
-                        <div class="pack">${action.description || 'No description'}</div>
-                    </div>
+                const pack = action.pack || action.ref.split('.')[0];
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${action.ref}</strong></td>
+                        <td>${action.description || 'No description'}</td>
+                        <td>${pack}</td>
+                        <td>
+                            <button class="btn btn-primary btn-sm" onclick="showAction('${action.ref}')">View</button>
+                            <button class="btn btn-primary btn-sm" onclick="editAction('${action.ref}')">Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteAction('${action.ref}')">Delete</button>
+                        </td>
+                    </tr>
                 `;
             });
+        }
+
+        async function loadPrometheusRules() {
+            const state = document.getElementById('prom-state-filter').value;
+            const res = await fetch('/api/prometheus/rules');
+            const data = await res.json();
+            const tbody = document.getElementById('prometheus-table');
+            tbody.innerHTML = '';
+
+            const settingsRes = await fetch('/api/settings');
+            const settings = await settingsRes.json();
+
+            const statusEl = document.getElementById('persistence-status');
+            let statusParts = [];
+
+            // CRD mode (default for Kubernetes)
+            if (settings.prometheus_use_crds) {
+                statusParts.push(`✓ CRD (${settings.prometheus_crd_namespace})`);
+            }
+
+            // Git persistence (optional)
+            if (settings.git_enabled) {
+                statusParts.push(`✓ Git: ${settings.git_provider}`);
+            }
+
+            if (statusParts.length === 0) {
+                statusEl.textContent = '⚠ No backend configured';
+                statusEl.style.color = '#e74c3c';
+            } else {
+                statusEl.textContent = statusParts.join(' | ');
+                statusEl.style.color = '#27ae60';
+            }
+
+            // Tooltip
+            if (settings.prometheus_use_crds && settings.git_enabled) {
+                statusEl.title = 'CRD: Immediate effect | Git: Audit trail & persistence';
+            } else if (settings.prometheus_use_crds) {
+                statusEl.title = 'CRD mode: Changes apply immediately via Prometheus Operator';
+            }
+
+            let rules = data.rules || [];
+            if (state) {
+                rules = rules.filter(r => r.state === state);
+            }
+
+            if (rules.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">No rules found</td></tr>';
+                return;
+            }
+
+            rules.forEach(rule => {
+                const stateClass = rule.state === 'firing' ? 'status-failed' :
+                                 rule.state === 'pending' ? 'status-running' : 'status-success';
+                const canEdit = settings.prometheus_use_crds || settings.git_enabled;
+                const editBtn = canEdit ?
+                    `<button class="btn btn-primary btn-sm" onclick='editPrometheusRule(${JSON.stringify(rule)})'>Edit</button>
+                     <button class="btn btn-danger btn-sm" onclick='deletePrometheusRule("${rule.name}", "${rule.group}", "${rule.file}")'>Delete</button>` :
+                    '<span style="color: #999; font-size: 11px;">No backend</span>';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${rule.name}</strong></td>
+                        <td><code>${rule.query.substring(0, 50)}${rule.query.length > 50 ? '...' : ''}</code></td>
+                        <td>${rule.duration}s</td>
+                        <td><span class="status ${stateClass}">${rule.state}</span></td>
+                        <td>${rule.group}</td>
+                        <td>${rule.file}</td>
+                        <td>${editBtn}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function editPrometheusRule(rule) {
+            document.getElementById('rule-modal-title').textContent = 'Edit Prometheus Rule';
+            document.getElementById('rule-name').value = rule.name;
+            document.getElementById('rule-name').disabled = true;
+            document.getElementById('rule-group').value = rule.group;
+            document.getElementById('rule-file').value = rule.file;
+
+            const ruleYaml = {
+                alert: rule.name,
+                expr: rule.query,
+                for: `${rule.duration}s`,
+                labels: rule.labels || {},
+                annotations: rule.annotations || {}
+            };
+
+            document.getElementById('rule-data').value = jsyaml.dump(ruleYaml);
+            document.getElementById('edit-rule-modal').classList.add('active');
+        }
+
+        async function savePrometheusRule(e) {
+            e.preventDefault();
+            const ruleName = document.getElementById('rule-name').value;
+            const groupName = document.getElementById('rule-group').value;
+            const fileName = document.getElementById('rule-file').value;
+            const ruleYaml = document.getElementById('rule-data').value;
+
+            try {
+                const ruleData = jsyaml.load(ruleYaml);
+
+                const res = await fetch(`/api/prometheus/rules/${ruleName}?group_name=${groupName}&file_name=${fileName}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(ruleData)
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    alert(`Failed to update rule: ${error.detail || res.statusText}`);
+                    return;
+                }
+
+                const result = await res.json();
+                closeEditRuleModal();
+                loadPrometheusRules();
+
+                let message = 'Rule updated successfully!\n\n';
+
+                // CRD result
+                if (result.crd) {
+                    message += `✓ CRD: ${result.crd.action} in ${result.crd.crd_name}\n`;
+                }
+
+                // Git result
+                if (result.git) {
+                    if (result.git.branch) {
+                        message += `✓ Git: ${result.git.branch}\n`;
+                    }
+                    if (result.git.pull_request) {
+                        message += `✓ PR #${result.git.pull_request.number}: ${result.git.pull_request.url}\n`;
+                    }
+                }
+
+                // Errors
+                if (result.git_error) {
+                    message += `⚠ Git error: ${result.git_error}\n`;
+                }
+
+                alert(message);
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        async function deletePrometheusRule(ruleName, groupName, fileName) {
+            if (!confirm(`Delete Prometheus rule "${ruleName}"?\n\nThis will create a PR to remove the rule.`)) return;
+
+            const res = await fetch(`/api/prometheus/rules/${ruleName}?group_name=${groupName}&file_name=${fileName}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                const result = await res.json();
+                loadPrometheusRules();
+
+                let message = 'Rule deleted successfully!\n\n';
+
+                // CRD result
+                if (result.crd) {
+                    message += `✓ CRD: ${result.crd.action}\n`;
+                }
+
+                // Git result
+                if (result.git) {
+                    if (result.git.branch) {
+                        message += `✓ Git: ${result.git.branch}\n`;
+                    }
+                    if (result.git.pull_request) {
+                        message += `✓ PR #${result.git.pull_request.number}: ${result.git.pull_request.url}\n`;
+                    }
+                }
+
+                // Errors
+                if (result.git_error) {
+                    message += `⚠ Git error: ${result.git_error}\n`;
+                }
+
+                alert(message);
+            } else {
+                const error = await res.json();
+                alert(`Failed to delete rule: ${error.detail || res.statusText}`);
+            }
+        }
+
+        function closeEditRuleModal() {
+            document.getElementById('edit-rule-modal').classList.remove('active');
         }
 
         async function loadHistory() {
@@ -977,6 +1397,98 @@ actions:
             closeActionModal();
             showCreateModal();
             document.getElementById('mapping-config').value = jsyaml.dump(config);
+        }
+
+        async function editAction(ref) {
+            const res = await fetch(`/api/stackstorm/actions/${ref}`);
+            const action = await res.json();
+
+            editActionMode = true;
+            document.getElementById('action-modal-title').textContent = 'Edit Action';
+            document.getElementById('action-ref').value = ref;
+            document.getElementById('action-ref').disabled = true;
+            document.getElementById('action-data').value = JSON.stringify(action, null, 2);
+            document.getElementById('edit-action-modal').classList.add('active');
+        }
+
+        function showCreateActionModal() {
+            editActionMode = false;
+            document.getElementById('action-modal-title').textContent = 'Create Action';
+            document.getElementById('action-ref').value = '';
+            document.getElementById('action-ref').disabled = false;
+            document.getElementById('action-data').value = JSON.stringify({
+                "name": "",
+                "pack": "",
+                "description": "",
+                "enabled": true,
+                "runner_type": "remote-shell-cmd",
+                "parameters": {
+                    "cmd": {
+                        "type": "string",
+                        "description": "Command to execute",
+                        "required": true
+                    }
+                }
+            }, null, 2);
+            document.getElementById('edit-action-modal').classList.add('active');
+        }
+
+        async function saveAction(e) {
+            e.preventDefault();
+            const ref = document.getElementById('action-ref').value;
+            const data = JSON.parse(document.getElementById('action-data').value);
+
+            try {
+                if (editActionMode) {
+                    const res = await fetch(`/api/stackstorm/actions/${ref}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    if (!res.ok) {
+                        const error = await res.json();
+                        alert(`Failed to update action: ${error.detail || res.statusText}`);
+                        return;
+                    }
+                } else {
+                    const res = await fetch('/api/stackstorm/actions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    if (!res.ok) {
+                        const error = await res.json();
+                        alert(`Failed to create action: ${error.detail || res.statusText}`);
+                        return;
+                    }
+                }
+
+                closeEditActionModal();
+                loadActions();
+                alert('Action saved successfully!');
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        async function deleteAction(ref) {
+            if (!confirm(`Delete action "${ref}"?`)) return;
+
+            const res = await fetch(`/api/stackstorm/actions/${ref}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                loadActions();
+                alert('Action deleted successfully!');
+            } else {
+                const error = await res.json();
+                alert(`Failed to delete action: ${error.detail || res.statusText}`);
+            }
+        }
+
+        function closeEditActionModal() {
+            document.getElementById('edit-action-modal').classList.remove('active');
         }
 
         // Load js-yaml from CDN

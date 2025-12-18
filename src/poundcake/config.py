@@ -32,6 +32,28 @@ class Settings(BaseSettings):
     stackstorm_auth_token: str = ""
     stackstorm_verify_ssl: bool = True
 
+    # Prometheus settings
+    prometheus_url: str = "http://localhost:9090"
+    prometheus_verify_ssl: bool = True
+
+    # Prometheus Operator CRD settings (Kubernetes)
+    prometheus_use_crds: bool = True  # Use PrometheusRule CRDs (default for K8s)
+    prometheus_crd_namespace: str = "monitoring"  # Namespace for PrometheusRule CRDs
+    prometheus_crd_labels: dict[str, str] = Field(default_factory=dict)  # Labels to apply to created CRDs
+
+    # Git repository settings for Prometheus rule management
+    git_enabled: bool = False
+    git_repo_url: str = ""  # Git repo URL (https:// or git@)
+    git_branch: str = "main"  # Branch to create PRs against
+    git_rules_path: str = "prometheus/rules"  # Path to rules directory in repo
+    git_file_per_alert: bool = True  # Create separate file for each alert
+    git_file_pattern: str = "{alert_name}.yaml"  # Pattern for alert files: {alert_name}, {group_name}, {crd_name}
+    git_token: str = ""  # Git token for HTTPS auth (GitHub/GitLab/Gitea)
+    git_ssh_key_path: str = ""  # Path to SSH key for git@ URLs
+    git_user_name: str = "PoundCake"  # Git commit author name
+    git_user_email: str = "poundcake@localhost"  # Git commit author email
+    git_provider: str = "github"  # github, gitlab, gitea, or none (no PR creation)
+
     # Remediation settings
     mappings_path: Path = Field(default=Path("config/mappings"))
     default_timeout: int = 300

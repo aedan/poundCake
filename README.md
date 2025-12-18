@@ -6,12 +6,16 @@ An extensible auto-remediation framework that bridges Prometheus Alertmanager wi
 
 - **Webhook Receiver**: Receives alerts from Prometheus Alertmanager
 - **StackStorm Integration**: Executes remediation actions via StackStorm API
+- **Prometheus Rule Management**: Edit and manage Prometheus alert rules via CRDs and GitOps
+- **Command-Line Interface**: Powerful CLI (`pcake`) for managing alerts and rules
 - **YAML Configuration**: Define alert-to-action mappings in YAML files
 - **Handler Registry**: Extensible handler system for custom remediation logic
 - **Built-in Handlers**: Pre-built handlers for common scenarios (CPU, disk, memory, services)
+- **GitOps Workflow**: Automatic PR creation for rule changes with audit trail
 - **Prometheus Metrics**: Built-in metrics for monitoring remediation performance
 - **Conditional Execution**: Execute actions based on severity, labels, or other conditions
 - **Template Support**: Dynamic parameters using alert labels and annotations
+- **Horizontal Scaling**: Distributed locking with Redis for multi-instance deployments
 
 ## Quick Start
 
@@ -54,6 +58,71 @@ receivers:
     webhook_configs:
       - url: http://poundcake.poundcake.svc.cluster.local:8080/webhook
 ```
+
+## Command-Line Interface (CLI)
+
+PoundCake includes a powerful CLI tool (`pcake`) for managing alerts and Prometheus rules from the command line.
+
+### Installation
+
+The CLI is installed automatically with PoundCake:
+
+```bash
+pip install poundcake
+```
+
+### Basic Usage
+
+```bash
+# Configure API endpoint
+export POUNDCAKE_URL=http://poundcake.example.com:8080
+
+# List all alerts
+pcake alerts list
+
+# Filter alerts by status
+pcake alerts list --status remediating
+
+# Watch alerts in real-time
+pcake alerts watch --watch
+
+# List Prometheus rules
+pcake rules list
+
+# Create a new rule
+pcake rules create my-alerts app-alerts HighMemory \
+  --expr 'memory_usage > 90' \
+  --for 5m \
+  --severity critical
+
+# Update a rule from file
+pcake rules update my-alerts app-alerts HighMemory --file rule.yaml
+
+# Apply rules from a file
+pcake rules apply prometheus-rules.yaml
+
+# Delete a rule
+pcake rules delete my-alerts app-alerts HighMemory --yes
+```
+
+### Output Formats
+
+The CLI supports multiple output formats:
+
+```bash
+# Human-readable table (default)
+pcake alerts list
+
+# JSON output
+pcake --format json alerts list
+
+# YAML output
+pcake --format yaml rules get my-alerts app-alerts HighMemory
+```
+
+### Documentation
+
+See [CLI Documentation](docs/CLI.md) for complete usage guide and examples.
 
 ## Prerequisites
 

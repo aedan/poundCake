@@ -181,6 +181,67 @@ persistence:
   accessMode: ReadWriteOnce
   size: 100Mi
 
+# Prometheus integration
+prometheus:
+  # Prometheus API URL for querying metrics
+  url: "http://prometheus-server.monitoring.svc.cluster.local:9090"
+  verifySsl: true
+
+  # Prometheus Operator CRD settings (Kubernetes)
+  # When enabled, PoundCake can manage PrometheusRule CRDs directly
+  useCrds: true
+  crdNamespace: monitoring
+  crdLabels: {}
+    # Example labels for PrometheusRule CRDs:
+    # prometheus: kube-prometheus
+    # role: alert-rules
+
+# Git repository integration for Prometheus rule management
+# Enables GitOps workflow: edit rules in UI -> commit to Git -> create PR
+git:
+  # Enable Git integration (optional - rules can be managed via CRDs alone)
+  enabled: false
+
+  # Git repository URL (HTTPS or SSH)
+  # Example: https://github.com/yourorg/prometheus-config.git
+  repoUrl: ""
+
+  # Branch to create PRs against
+  branch: main
+
+  # Path to Prometheus rules directory in repo
+  rulesPath: prometheus/rules
+
+  # File organization strategy
+  # When true, each alert gets its own file (recommended)
+  # When false, alerts are grouped in files by CRD name
+  filePerAlert: true
+
+  # File naming pattern (used when filePerAlert: true)
+  # Available variables: {alert_name}, {group_name}, {crd_name}
+  filePattern: "{alert_name}.yaml"
+
+  # Git authentication
+  # For HTTPS: use token
+  # For SSH: use sshKeyPath (mount SSH key as secret)
+  token: ""
+  sshKeyPath: ""
+
+  # Git commit author
+  userName: PoundCake
+  userEmail: poundcake@example.com
+
+  # Git provider for PR creation
+  # Options: github, gitlab, gitea, none
+  # Use "none" to commit without creating PRs
+  provider: github
+
+  # Reference to existing secret containing Git credentials
+  existingSecret: ""
+  secretKeys:
+    token: "git-token"
+    sshKey: "git-ssh-key"
+
 # Redis configuration for stateful alert tracking
 # Required for horizontal scaling
 redis:

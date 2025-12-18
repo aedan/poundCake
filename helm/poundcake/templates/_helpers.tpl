@@ -95,3 +95,14 @@ Get the Redis URL
 {{- .Values.redis.external.url }}
 {{- end }}
 {{- end }}
+
+{{/*
+Get the secret name for Git credentials
+*/}}
+{{- define "poundcake.gitSecretName" -}}
+{{- if .Values.git.existingSecret }}
+{{- .Values.git.existingSecret }}
+{{- else }}
+{{- include "poundcake.fullname" . }}-git
+{{- end }}
+{{- end }}

@@ -76,3 +76,6 @@ dmypy.json
 # Local configuration
 *.local.yaml
 *.local.yml
+
+# AI coding assistant files
+CLAUDE.md

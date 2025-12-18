@@ -126,6 +126,52 @@ spec:
             {{- end }}
             {{- end }}
             {{- end }}
+            {{- if .Values.prometheus }}
+            - name: POUNDCAKE_PROMETHEUS_URL
+              value: {{ .Values.prometheus.url | quote }}
+            - name: POUNDCAKE_PROMETHEUS_VERIFY_SSL
+              value: {{ .Values.prometheus.verifySsl | quote }}
+            - name: POUNDCAKE_PROMETHEUS_USE_CRDS
+              value: {{ .Values.prometheus.useCrds | quote }}
+            - name: POUNDCAKE_PROMETHEUS_CRD_NAMESPACE
+              value: {{ .Values.prometheus.crdNamespace | quote }}
+            {{- if .Values.prometheus.crdLabels }}
+            - name: POUNDCAKE_PROMETHEUS_CRD_LABELS
+              value: {{ .Values.prometheus.crdLabels | toJson | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.git.enabled }}
+            - name: POUNDCAKE_GIT_ENABLED
+              value: "true"
+            - name: POUNDCAKE_GIT_REPO_URL
+              value: {{ .Values.git.repoUrl | quote }}
+            - name: POUNDCAKE_GIT_BRANCH
+              value: {{ .Values.git.branch | quote }}
+            - name: POUNDCAKE_GIT_RULES_PATH
+              value: {{ .Values.git.rulesPath | quote }}
+            - name: POUNDCAKE_GIT_FILE_PER_ALERT
+              value: {{ .Values.git.filePerAlert | quote }}
+            - name: POUNDCAKE_GIT_FILE_PATTERN
+              value: {{ .Values.git.filePattern | quote }}
+            - name: POUNDCAKE_GIT_USER_NAME
+              value: {{ .Values.git.userName | quote }}
+            - name: POUNDCAKE_GIT_USER_EMAIL
+              value: {{ .Values.git.userEmail | quote }}
+            - name: POUNDCAKE_GIT_PROVIDER
+              value: {{ .Values.git.provider | quote }}
+            {{- if or .Values.git.token .Values.git.existingSecret }}
+            - name: POUNDCAKE_GIT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "poundcake.gitSecretName" . }}
+                  key: {{ .Values.git.secretKeys.token }}
+                  optional: true
+            {{- end }}
+            {{- if .Values.git.sshKeyPath }}
+            - name: POUNDCAKE_GIT_SSH_KEY_PATH
+              value: {{ .Values.git.sshKeyPath | quote }}
+            {{- end }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /health
