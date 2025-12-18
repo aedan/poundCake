@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "poundcake"
-version = "0.1.10"
+version = "0.2.0"
 description = "Auto-remediation framework bridging Prometheus Alertmanager with StackStorm"
 readme = "README.md"
 requires-python = ">=3.10"
