@@ -195,7 +195,7 @@ class StackStormClient:
                     headers=headers,
                     params={"limit": 1},
                 )
-                return response.status_code == 200
+                return response.status_code == 200  # type: ignore[no-any-return]
             except Exception as e:
                 logger.error("StackStorm health check failed", error=str(e))
                 return False

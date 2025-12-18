@@ -134,6 +134,7 @@ class PrometheusRuleManager:
                     "message": "Failed to clone/pull Git repository",
                 }
 
+            assert self.git_manager.repo_path is not None
             crd_name = file_name.replace(".yaml", "").replace(".yml", "")
             actual_file_name = self._get_file_path(rule_name, group_name, crd_name)
             file_path = f"{self.settings.git_rules_path}/{actual_file_name}"
@@ -200,7 +201,7 @@ class PrometheusRuleManager:
                     "message": "Failed to commit and push changes",
                 }
 
-            result = {
+            result: dict[str, Any] = {
                 "status": "success",
                 "message": "Rule updated in Git",
                 "branch": branch_name,
@@ -326,6 +327,7 @@ class PrometheusRuleManager:
                     "message": "Failed to clone/pull Git repository",
                 }
 
+            assert self.git_manager.repo_path is not None
             crd_name = file_name.replace(".yaml", "").replace(".yml", "")
             actual_file_name = self._get_file_path(rule_name, group_name, crd_name)
             file_path = f"{self.settings.git_rules_path}/{actual_file_name}"
@@ -355,7 +357,7 @@ class PrometheusRuleManager:
                     if group.get("name") == group_name:
                         if "rules" not in group:
                             group["rules"] = []
-                        group["rules"].append(rule_data)
+                        group["rules"].append(rule_data)  # type: ignore[union-attr]
                         group_found = True
                         break
 
@@ -386,7 +388,7 @@ class PrometheusRuleManager:
                     "message": "Failed to commit and push changes",
                 }
 
-            result = {
+            result: dict[str, Any] = {
                 "status": "success",
                 "message": "Rule created in Git",
                 "branch": branch_name,
@@ -507,6 +509,7 @@ class PrometheusRuleManager:
                     "message": "Failed to clone/pull Git repository",
                 }
 
+            assert self.git_manager.repo_path is not None
             crd_name = file_name.replace(".yaml", "").replace(".yml", "")
             actual_file_name = self._get_file_path(rule_name, group_name, crd_name)
             file_path = f"{self.settings.git_rules_path}/{actual_file_name}"
@@ -568,7 +571,7 @@ class PrometheusRuleManager:
                     "message": "Failed to commit and push changes",
                 }
 
-            result = {
+            result: dict[str, Any] = {
                 "status": "success",
                 "message": "Rule deleted from Git",
                 "branch": branch_name,

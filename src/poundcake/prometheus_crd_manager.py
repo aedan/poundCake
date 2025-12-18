@@ -59,7 +59,7 @@ class PrometheusCRDManager:
 
             rules = response.get("items", [])
             logger.info("Fetched PrometheusRule CRDs", count=len(rules))
-            return rules
+            return rules  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("Failed to fetch PrometheusRule CRDs", error=str(e))
             return []
@@ -85,7 +85,7 @@ class PrometheusCRDManager:
                 plural="prometheusrules",
                 name=name,
             )
-            return rule
+            return rule  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("Failed to get PrometheusRule CRD", name=name, error=str(e))
             return None
@@ -137,6 +137,9 @@ class PrometheusCRDManager:
         rule_data: dict[str, Any],
     ) -> dict[str, Any]:
         """Update a rule within an existing CRD."""
+        if not self.custom_api:
+            return {"status": "error", "message": "Kubernetes client not available"}
+
         crd_name = existing_crd["metadata"]["name"]
         spec = existing_crd.get("spec", {})
         groups = spec.get("groups", [])
@@ -211,6 +214,9 @@ class PrometheusCRDManager:
         rule_data: dict[str, Any],
     ) -> dict[str, Any]:
         """Create a new PrometheusRule CRD."""
+        if not self.custom_api:
+            return {"status": "error", "message": "Kubernetes client not available"}
+
         labels = {
             "managed-by": "poundcake",
             **self.settings.prometheus_crd_labels,

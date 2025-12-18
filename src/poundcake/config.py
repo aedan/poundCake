@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     # Prometheus settings
     prometheus_url: str = "http://localhost:9090"
     prometheus_verify_ssl: bool = True
+    prometheus_reload_enabled: bool = False  # Enable Prometheus config reload
+    prometheus_reload_url: str = ""  # Custom reload URL (defaults to prometheus_url/-/reload)
 
     # Prometheus Operator CRD settings (Kubernetes)
     prometheus_use_crds: bool = True  # Use PrometheusRule CRDs (default for K8s)

@@ -117,6 +117,7 @@ class GitManager:
             return False, ""
 
         try:
+            assert self.repo_path is not None
             repo = git.Repo(self.repo_path)
 
             branch_name = f"poundcake-rule-update-{os.urandom(4).hex()}"
@@ -184,6 +185,7 @@ class GitManager:
             return False, ""
 
         try:
+            assert self.repo_path is not None
             repo = git.Repo(self.repo_path)
 
             branch_name = f"poundcake-rule-update-{os.urandom(4).hex()}"
@@ -287,7 +289,7 @@ class GitManager:
                         pr_number=pr_data.get("number"),
                         url=pr_data.get("html_url"),
                     )
-                    return pr_data
+                    return pr_data  # type: ignore[no-any-return]
                 else:
                     logger.error(
                         "Failed to create GitHub PR",
@@ -331,7 +333,7 @@ class GitManager:
                         mr_iid=mr_data.get("iid"),
                         url=mr_data.get("web_url"),
                     )
-                    return mr_data
+                    return mr_data  # type: ignore[no-any-return]
                 else:
                     logger.error(
                         "Failed to create GitLab MR",
@@ -375,7 +377,7 @@ class GitManager:
                         pr_number=pr_data.get("number"),
                         url=pr_data.get("html_url"),
                     )
-                    return pr_data
+                    return pr_data  # type: ignore[no-any-return]
                 else:
                     logger.error(
                         "Failed to create Gitea PR",

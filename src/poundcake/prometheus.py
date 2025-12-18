@@ -113,7 +113,7 @@ class PrometheusClient:
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("status") == "success":
-                        return data.get("data", {}).get("groups", [])
+                        return data.get("data", {}).get("groups", [])  # type: ignore[no-any-return]
                     else:
                         logger.error(
                             "Prometheus API returned error",

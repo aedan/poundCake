@@ -46,7 +46,7 @@ class RedisStateStore(StateStore):
 
     async def connect(self) -> None:
         """Connect to Redis."""
-        self._client = redis.from_url(  # type: ignore[no-untyped-call]
+        self._client = redis.from_url(
             self._url,
             password=self._password,
             decode_responses=True,
@@ -65,7 +65,7 @@ class RedisStateStore(StateStore):
         if not self._client:
             return False
         try:
-            await self._client.ping()  # type: ignore[misc]
+            await self._client.ping()
             return True
         except Exception as e:
             logger.error("Redis health check failed", error=str(e))
@@ -123,13 +123,13 @@ class RedisStateStore(StateStore):
 
         # Remove from all status sets
         for status in AlertTrackingStatus:
-            await self._client.srem(  # type: ignore[misc]
+            await self._client.srem(
                 f"{self.INDEX_PREFIX}status:{status.value}",
                 alert.fingerprint,
             )
 
         # Add to current status set
-        await self._client.sadd(  # type: ignore[misc]
+        await self._client.sadd(
             f"{self.INDEX_PREFIX}status:{alert.status.value}",
             alert.fingerprint,
         )
@@ -144,7 +144,7 @@ class RedisStateStore(StateStore):
 
         # Remove from all indexes
         for status in AlertTrackingStatus:
-            await self._client.srem(  # type: ignore[misc]
+            await self._client.srem(
                 f"{self.INDEX_PREFIX}status:{status.value}",
                 fingerprint,
             )
@@ -165,9 +165,7 @@ class RedisStateStore(StateStore):
 
         if status:
             # Get fingerprints from status index
-            fingerprints = await self._client.smembers(  # type: ignore[misc]
-                f"{self.INDEX_PREFIX}status:{status}"
-            )
+            fingerprints = await self._client.smembers(f"{self.INDEX_PREFIX}status:{status}")
             fingerprints_list = list(fingerprints)
         else:
             # Get all alert keys
@@ -202,9 +200,7 @@ class RedisStateStore(StateStore):
 
         # Count by status from indexes
         for status in AlertTrackingStatus:
-            count = await self._client.scard(  # type: ignore[misc]
-                f"{self.INDEX_PREFIX}status:{status.value}"
-            )
+            count = await self._client.scard(f"{self.INDEX_PREFIX}status:{status.value}")
             if count > 0:
                 by_status[status.value] = count
                 stats.total += count

@@ -1,6 +1,6 @@
 """HTTP client for PoundCake API."""
 
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import httpx
 
@@ -54,7 +54,7 @@ class PoundCakeClient:
                 params=params,
             )
             response.raise_for_status()
-            return response.json()
+            return response.json()  # type: ignore[no-any-return]
 
     # Alert management
 
@@ -69,7 +69,7 @@ class PoundCakeClient:
             params["status"] = status
         if severity:
             params["severity"] = severity
-        return self._request("GET", "/api/alerts", params=params)
+        return cast(list[dict[str, Any]], self._request("GET", "/api/alerts", params=params))
 
     def get_alert(self, fingerprint: str) -> dict[str, Any]:
         """Get a specific alert by fingerprint."""
@@ -79,7 +79,7 @@ class PoundCakeClient:
 
     def list_rules(self) -> list[dict[str, Any]]:
         """List all Prometheus rules."""
-        return self._request("GET", "/api/prometheus/rules")
+        return cast(list[dict[str, Any]], self._request("GET", "/api/prometheus/rules"))
 
     def get_rule(self, crd_name: str, group_name: str, rule_name: str) -> dict[str, Any]:
         """Get a specific Prometheus rule."""
@@ -146,10 +146,12 @@ class PoundCakeClient:
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """List StackStorm actions."""
-        params = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if pack:
             params["pack"] = pack
-        return self._request("GET", "/api/stackstorm/actions", params=params)
+        return cast(
+            list[dict[str, Any]], self._request("GET", "/api/stackstorm/actions", params=params)
+        )
 
     def get_st2_action(self, action_ref: str) -> dict[str, Any]:
         """Get a specific StackStorm action."""
