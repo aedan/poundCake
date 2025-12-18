@@ -3,7 +3,7 @@
 import json
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator
+from typing import AsyncIterator
 
 import redis.asyncio as redis
 import structlog
