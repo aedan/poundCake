@@ -123,7 +123,7 @@ class GitManager:
             branch_name = f"poundcake-rule-update-{os.urandom(4).hex()}"
             current = repo.head.reference
             new_branch = repo.create_head(branch_name)
-            assert hasattr(new_branch, 'checkout')
+            assert hasattr(new_branch, "checkout")
             new_branch.checkout()
 
             full_path = self.repo_path / file_path
@@ -146,7 +146,7 @@ class GitManager:
 
             repo.git.push("--set-upstream", "origin", branch_name, env=env)
 
-            assert hasattr(current, 'checkout')
+            assert hasattr(current, "checkout")
             current.checkout()
 
             logger.info(
@@ -193,7 +193,7 @@ class GitManager:
             branch_name = f"poundcake-rule-update-{os.urandom(4).hex()}"
             current = repo.head.reference
             new_branch = repo.create_head(branch_name)
-            assert hasattr(new_branch, 'checkout')
+            assert hasattr(new_branch, "checkout")
             new_branch.checkout()
 
             full_path = self.repo_path / file_path
@@ -216,7 +216,7 @@ class GitManager:
 
             repo.git.push("--set-upstream", "origin", branch_name, env=env)
 
-            assert hasattr(current, 'checkout')
+            assert hasattr(current, "checkout")
             current.checkout()
 
             logger.info(
