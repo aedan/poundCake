@@ -28,27 +28,50 @@ def get_admin_credentials() -> tuple[str, str] | None:
     if not settings.auth_enabled:
         return None
 
+    # Try to load from Kubernetes secret
     try:
         import base64
         from kubernetes import client, config
 
         try:
             config.load_incluster_config()
+            logger.info("Loaded in-cluster Kubernetes config")
         except Exception:
             config.load_kube_config()
+            logger.info("Loaded local Kubernetes config")
 
         v1 = client.CoreV1Api()
         secret = v1.read_namespaced_secret(
             name=settings.auth_secret_name,
-            namespace="poundcake",  # TODO: Make this configurable
+            namespace=settings.auth_secret_namespace,
         )
 
         username = base64.b64decode(secret.data["username"]).decode("utf-8")
         password = base64.b64decode(secret.data["password"]).decode("utf-8")
 
+        logger.info(
+            "Loaded admin credentials from Kubernetes secret",
+            secret_name=settings.auth_secret_name,
+            namespace=settings.auth_secret_namespace,
+        )
         return (username, password)
     except Exception as e:
-        logger.error("Failed to load admin credentials from secret", error=str(e))
+        logger.warning(
+            "Failed to load admin credentials from Kubernetes secret",
+            error=str(e),
+            secret_name=settings.auth_secret_name,
+            namespace=settings.auth_secret_namespace,
+        )
+
+        # Fallback to environment variables for local development
+        if settings.auth_dev_username and settings.auth_dev_password:
+            logger.info("Using development credentials from environment variables")
+            return (settings.auth_dev_username, settings.auth_dev_password)
+
+        logger.error(
+            "No admin credentials available - set POUNDCAKE_AUTH_DEV_USERNAME "
+            "and POUNDCAKE_AUTH_DEV_PASSWORD for local development"
+        )
         return None
 
 

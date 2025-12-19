@@ -85,10 +85,15 @@ class Settings(BaseSettings):
     # Authentication settings
     auth_enabled: bool = False
     auth_secret_name: str = "poundcake-admin"  # Kubernetes secret name for admin credentials
+    auth_secret_namespace: str = "poundcake"  # Namespace where auth secret is stored
     auth_session_timeout: int = 86400  # Session timeout in seconds (24 hours)
     auth_secret_key: str = Field(
         default_factory=lambda: os.urandom(32).hex()
     )  # Secret key for session signing
+
+    # Development/local auth fallback (only used if K8s secret fails)
+    auth_dev_username: str = ""  # For local dev only
+    auth_dev_password: str = ""  # For local dev only
 
 
 @lru_cache
