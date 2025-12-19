@@ -3,7 +3,7 @@ name: poundcake
 description: Auto-remediation framework bridging Prometheus Alertmanager with StackStorm
 type: application
 version: 0.2.1
-appVersion: "0.2.5"
+appVersion: "0.2.6"
 maintainers:
   - name: Jake Briggs
 keywords:
