@@ -628,7 +628,9 @@ def create_app() -> FastAPI:
         return {"status": "success", "redirect": "/ui"}
 
     @app.post("/api/logout")
-    async def logout(response: Response, session: str | None = Cookie(default=None)) -> dict[str, str]:
+    async def logout(
+        response: Response, session: str | None = Cookie(default=None)
+    ) -> dict[str, str]:
         """Logout endpoint."""
         from poundcake.auth import destroy_session
 
