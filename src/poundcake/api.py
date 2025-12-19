@@ -549,6 +549,14 @@ def create_app() -> FastAPI:
             "stackstorm_url": settings.stackstorm_url,
         }
 
+    # Root redirect
+    @app.get("/")
+    async def root() -> Any:
+        """Redirect root path to the UI."""
+        from fastapi.responses import RedirectResponse
+
+        return RedirectResponse(url="/ui")
+
     # Web UI
     @app.get("/ui", response_class=HTMLResponse)
     async def ui() -> str:
