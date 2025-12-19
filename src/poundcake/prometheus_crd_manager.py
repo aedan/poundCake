@@ -90,6 +90,56 @@ class PrometheusCRDManager:
             logger.error("Failed to get PrometheusRule CRD", name=name, error=str(e))
             return None
 
+    async def find_crd_containing_rule(
+        self, rule_name: str, group_name: str
+    ) -> dict[str, Any] | None:
+        """
+        Find which PrometheusRule CRD contains a specific alert rule.
+
+        Args:
+            rule_name: Name of the alert rule
+            group_name: Name of the rule group
+
+        Returns:
+            The PrometheusRule CRD containing the rule, or None if not found
+        """
+        if not self.custom_api:
+            return None
+
+        try:
+            all_crds = await self.list_prometheus_rules()
+
+            for crd in all_crds:
+                spec = crd.get("spec", {})
+                groups = spec.get("groups", [])
+
+                for group in groups:
+                    if group.get("name") == group_name:
+                        rules = group.get("rules", [])
+                        for rule in rules:
+                            if rule.get("alert") == rule_name:
+                                logger.info(
+                                    "Found rule in CRD",
+                                    rule=rule_name,
+                                    group=group_name,
+                                    crd=crd["metadata"]["name"],
+                                )
+                                return crd
+
+            logger.warning(
+                "Rule not found in any CRD",
+                rule=rule_name,
+                group=group_name,
+            )
+            return None
+        except Exception as e:
+            logger.error(
+                "Error finding CRD containing rule",
+                rule=rule_name,
+                error=str(e),
+            )
+            return None
+
     async def create_or_update_rule(
         self,
         rule_name: str,
@@ -103,7 +153,7 @@ class PrometheusCRDManager:
         Args:
             rule_name: Name of the alert rule
             group_name: Name of the rule group
-            crd_name: Name of the PrometheusRule CRD
+            crd_name: Name of the PrometheusRule CRD (may be from sanitized file path)
             rule_data: Rule configuration
 
         Returns:
@@ -116,12 +166,22 @@ class PrometheusCRDManager:
             }
 
         try:
-            existing = await self.get_prometheus_rule(crd_name)
+            # First, try to find the existing CRD containing this rule
+            existing = await self.find_crd_containing_rule(rule_name, group_name)
 
             if existing:
+                # Update the rule in the existing CRD
                 return await self._update_rule_in_crd(existing, rule_name, group_name, rule_data)
             else:
-                return await self._create_rule_crd(crd_name, group_name, rule_name, rule_data)
+                # Try to get the CRD by name in case it's a new rule in an existing CRD
+                crd_by_name = await self.get_prometheus_rule(crd_name)
+                if crd_by_name:
+                    return await self._update_rule_in_crd(
+                        crd_by_name, rule_name, group_name, rule_data
+                    )
+                else:
+                    # Create a new CRD
+                    return await self._create_rule_crd(crd_name, group_name, rule_name, rule_data)
         except Exception as e:
             logger.error("Failed to create/update PrometheusRule", error=str(e))
             return {
