@@ -172,6 +172,16 @@ spec:
               value: {{ .Values.git.sshKeyPath | quote }}
             {{- end }}
             {{- end }}
+            {{- if .Values.auth.enabled }}
+            - name: POUNDCAKE_AUTH_ENABLED
+              value: "true"
+            - name: POUNDCAKE_AUTH_SECRET_NAME
+              value: {{ include "poundcake.fullname" . }}-admin
+            - name: POUNDCAKE_AUTH_SECRET_NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: POUNDCAKE_AUTH_SESSION_TIMEOUT
+              value: {{ .Values.auth.sessionTimeout | quote }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /health
