@@ -922,7 +922,7 @@ def get_management_ui_html() -> str:
 
                 <div style="text-align: right; margin-top: 20px;">
                     <button type="button" class="btn" onclick="closeEditRuleModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save & Create PR</button>
+                    <button type="submit" class="btn btn-primary" id="save-rule-btn">Save Rule</button>
                 </div>
             </form>
         </div>
@@ -1234,6 +1234,20 @@ def get_management_ui_html() -> str:
             Object.entries(annotations).forEach(([key, value]) => {
                 addRuleAnnotationField(key, value);
             });
+
+            // Update button text based on Git configuration
+            try {
+                const settingsRes = await fetch('/api/settings');
+                const settings = await settingsRes.json();
+                const saveBtn = document.getElementById('save-rule-btn');
+                if (settings.git_enabled) {
+                    saveBtn.textContent = 'Save & Create PR';
+                } else {
+                    saveBtn.textContent = 'Save Rule';
+                }
+            } catch (error) {
+                console.error('Failed to fetch settings:', error);
+            }
 
             document.getElementById('edit-rule-modal').classList.add('active');
         }
