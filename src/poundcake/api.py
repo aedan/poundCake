@@ -1339,7 +1339,9 @@ def get_management_ui_html() -> str:
 
                 // CRD result
                 if (result.crd) {
-                    message += `✓ CRD: ${result.crd.action} in ${result.crd.crd_name}\n`;
+                    message += `✓ CRD: ${result.crd.action} in ${result.crd.crd_name}\n\n`;
+                    message += `Note: Changes will appear in Prometheus within 5 minutes.\n`;
+                    message += `Refresh this tab to see the updated rule.\n`;
                 }
 
                 // Git result
