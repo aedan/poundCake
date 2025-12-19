@@ -649,6 +649,9 @@ def get_management_ui_html() -> str:
         .activity-item.success { border-color: #27ae60; }
         .activity-item.failed { border-color: #e74c3c; }
         .activity-item .time { font-size: 12px; color: #666; }
+        .kv-pair { display: flex; gap: 10px; margin-bottom: 8px; align-items: center; }
+        .kv-pair input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .kv-pair button { padding: 4px 8px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -659,7 +662,7 @@ def get_management_ui_html() -> str:
         </div>
     </header>
 
-    <div class="container" style="max-width: 1400px;">
+    <div class="container" style="max-width: 95%; margin: 0 auto;">
         <div class="tabs">
             <button class="tab active" onclick="showTab('dashboard')">Dashboard</button>
             <button class="tab" onclick="showTab('alerts')">Alert Status</button>
@@ -886,7 +889,7 @@ def get_management_ui_html() -> str:
 
     <!-- Edit Prometheus Rule Modal -->
     <div id="edit-rule-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="width: 800px;">
             <h3 id="rule-modal-title">Edit Prometheus Rule</h3>
             <form id="rule-form" onsubmit="savePrometheusRule(event)">
                 <div class="form-group">
@@ -902,10 +905,28 @@ def get_management_ui_html() -> str:
                     <input type="text" id="rule-file" required>
                 </div>
                 <div class="form-group">
-                    <label>Rule Definition (YAML)</label>
-                    <textarea id="rule-data" required style="height: 400px;"></textarea>
+                    <label>PromQL Expression</label>
+                    <textarea id="rule-expr" required style="height: 80px; font-family: monospace;" placeholder="up == 0"></textarea>
                 </div>
-                <div style="text-align: right;">
+                <div class="form-group">
+                    <label>Duration (for)</label>
+                    <input type="text" id="rule-for" placeholder="5m" style="width: 200px;">
+                    <small style="color: #666; display: block; margin-top: 5px;">Examples: 30s, 5m, 1h, 2h30m</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Labels</label>
+                    <div id="rule-labels-container"></div>
+                    <button type="button" class="btn btn-sm" onclick="addRuleLabelField()" style="margin-top: 5px;">+ Add Label</button>
+                </div>
+
+                <div class="form-group">
+                    <label>Annotations</label>
+                    <div id="rule-annotations-container"></div>
+                    <button type="button" class="btn btn-sm" onclick="addRuleAnnotationField()" style="margin-top: 5px;">+ Add Annotation</button>
+                </div>
+
+                <div style="text-align: right; margin-top: 20px;">
                     <button type="button" class="btn" onclick="closeEditRuleModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save & Create PR</button>
                 </div>
@@ -1202,17 +1223,50 @@ def get_management_ui_html() -> str:
             document.getElementById('rule-name').disabled = true;
             document.getElementById('rule-group').value = rule.group;
             document.getElementById('rule-file').value = rule.file;
+            document.getElementById('rule-expr').value = rule.query;
+            document.getElementById('rule-for').value = `${rule.duration}s`;
 
-            const ruleYaml = {
-                alert: rule.name,
-                expr: rule.query,
-                for: `${rule.duration}s`,
-                labels: rule.labels || {},
-                annotations: rule.annotations || {}
-            };
+            // Clear and populate labels
+            const labelsContainer = document.getElementById('rule-labels-container');
+            labelsContainer.innerHTML = '';
+            const labels = rule.labels || {};
+            Object.entries(labels).forEach(([key, value]) => {
+                addRuleLabelField(key, value);
+            });
 
-            document.getElementById('rule-data').value = jsyaml.dump(ruleYaml);
+            // Clear and populate annotations
+            const annotationsContainer = document.getElementById('rule-annotations-container');
+            annotationsContainer.innerHTML = '';
+            const annotations = rule.annotations || {};
+            Object.entries(annotations).forEach(([key, value]) => {
+                addRuleAnnotationField(key, value);
+            });
+
             document.getElementById('edit-rule-modal').classList.add('active');
+        }
+
+        function addRuleLabelField(key = '', value = '') {
+            const container = document.getElementById('rule-labels-container');
+            const div = document.createElement('div');
+            div.className = 'kv-pair';
+            div.innerHTML = `
+                <input type="text" placeholder="Key" value="${key}" class="label-key">
+                <input type="text" placeholder="Value" value="${value}" class="label-value">
+                <button type="button" onclick="this.parentElement.remove()">Remove</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function addRuleAnnotationField(key = '', value = '') {
+            const container = document.getElementById('rule-annotations-container');
+            const div = document.createElement('div');
+            div.className = 'kv-pair';
+            div.innerHTML = `
+                <input type="text" placeholder="Key" value="${key}" class="annotation-key">
+                <input type="text" placeholder="Value" value="${value}" class="annotation-value">
+                <button type="button" onclick="this.parentElement.remove()">Remove</button>
+            `;
+            container.appendChild(div);
         }
 
         async function savePrometheusRule(e) {
@@ -1220,10 +1274,33 @@ def get_management_ui_html() -> str:
             const ruleName = document.getElementById('rule-name').value;
             const groupName = document.getElementById('rule-group').value;
             const fileName = document.getElementById('rule-file').value;
-            const ruleYaml = document.getElementById('rule-data').value;
+            const expr = document.getElementById('rule-expr').value;
+            const forDuration = document.getElementById('rule-for').value;
+
+            // Collect labels
+            const labels = {};
+            document.querySelectorAll('#rule-labels-container .kv-pair').forEach(pair => {
+                const key = pair.querySelector('.label-key').value.trim();
+                const value = pair.querySelector('.label-value').value.trim();
+                if (key) labels[key] = value;
+            });
+
+            // Collect annotations
+            const annotations = {};
+            document.querySelectorAll('#rule-annotations-container .kv-pair').forEach(pair => {
+                const key = pair.querySelector('.annotation-key').value.trim();
+                const value = pair.querySelector('.annotation-value').value.trim();
+                if (key) annotations[key] = value;
+            });
 
             try {
-                const ruleData = jsyaml.load(ruleYaml);
+                const ruleData = {
+                    alert: ruleName,
+                    expr: expr,
+                    for: forDuration || undefined,
+                    labels: Object.keys(labels).length > 0 ? labels : undefined,
+                    annotations: Object.keys(annotations).length > 0 ? annotations : undefined
+                };
 
                 const res = await fetch(`/api/prometheus/rules/${ruleName}?group_name=${groupName}&file_name=${fileName}`, {
                     method: 'PUT',
