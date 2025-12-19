@@ -1,5 +1,6 @@
 """Prometheus rule manager for editing and applying rule changes."""
 
+import re
 from typing import Any
 
 import yaml
@@ -11,6 +12,50 @@ from poundcake.prometheus import get_prometheus_client
 from poundcake.prometheus_crd_manager import get_prometheus_crd_manager
 
 logger = structlog.get_logger(__name__)
+
+
+def sanitize_crd_name(file_name: str) -> str:
+    """
+    Sanitize a file name to be a valid Kubernetes resource name.
+
+    Kubernetes resource names must follow RFC 1123 subdomain rules:
+    - Only lowercase alphanumeric characters, '-' or '.'
+    - Must start and end with an alphanumeric character
+    - Max 253 characters
+
+    Args:
+        file_name: The file name or path to sanitize
+
+    Returns:
+        A valid Kubernetes resource name
+    """
+    # Remove file extensions
+    name = file_name.replace(".yaml", "").replace(".yml", "")
+
+    # Extract just the basename if it's a full path
+    if "/" in name:
+        name = name.split("/")[-1]
+
+    # Convert to lowercase
+    name = name.lower()
+
+    # Replace invalid characters with hyphens
+    # Valid chars are: lowercase letters, digits, '-', '.'
+    name = re.sub(r"[^a-z0-9.-]", "-", name)
+
+    # Remove leading/trailing non-alphanumeric characters
+    name = re.sub(r"^[^a-z0-9]+", "", name)
+    name = re.sub(r"[^a-z0-9]+$", "", name)
+
+    # Ensure it's not empty
+    if not name:
+        name = "prometheus-rule"
+
+    # Truncate to 253 characters
+    if len(name) > 253:
+        name = name[:253].rstrip("-.")
+
+    return name
 
 
 class PrometheusRuleManager:
@@ -80,7 +125,7 @@ class PrometheusRuleManager:
 
         # Mode 1: CRD Mode (immediate effect via Prometheus Operator)
         if self.settings.prometheus_use_crds:
-            crd_name = file_name.replace(".yaml", "").replace(".yml", "")
+            crd_name = sanitize_crd_name(file_name)
             crd_result = await self.crd_manager.create_or_update_rule(
                 rule_name, group_name, crd_name, rule_data
             )
@@ -135,7 +180,7 @@ class PrometheusRuleManager:
                 }
 
             assert self.git_manager.repo_path is not None
-            crd_name = file_name.replace(".yaml", "").replace(".yml", "")
+            crd_name = sanitize_crd_name(file_name)
             actual_file_name = self._get_file_path(rule_name, group_name, crd_name)
             file_path = f"{self.settings.git_rules_path}/{actual_file_name}"
             full_path = self.git_manager.repo_path / file_path
@@ -273,7 +318,7 @@ class PrometheusRuleManager:
 
         # Mode 1: CRD Mode (immediate effect via Prometheus Operator)
         if self.settings.prometheus_use_crds:
-            crd_name = file_name.replace(".yaml", "").replace(".yml", "")
+            crd_name = sanitize_crd_name(file_name)
             crd_result = await self.crd_manager.create_or_update_rule(
                 rule_name, group_name, crd_name, rule_data
             )
@@ -328,7 +373,7 @@ class PrometheusRuleManager:
                 }
 
             assert self.git_manager.repo_path is not None
-            crd_name = file_name.replace(".yaml", "").replace(".yml", "")
+            crd_name = sanitize_crd_name(file_name)
             actual_file_name = self._get_file_path(rule_name, group_name, crd_name)
             file_path = f"{self.settings.git_rules_path}/{actual_file_name}"
             full_path = self.git_manager.repo_path / file_path
@@ -458,7 +503,7 @@ class PrometheusRuleManager:
 
         # Mode 1: CRD Mode (immediate effect via Prometheus Operator)
         if self.settings.prometheus_use_crds:
-            crd_name = file_name.replace(".yaml", "").replace(".yml", "")
+            crd_name = sanitize_crd_name(file_name)
             crd_result = await self.crd_manager.delete_rule(rule_name, group_name, crd_name)
 
             if crd_result.get("status") == "error":
@@ -510,7 +555,7 @@ class PrometheusRuleManager:
                 }
 
             assert self.git_manager.repo_path is not None
-            crd_name = file_name.replace(".yaml", "").replace(".yml", "")
+            crd_name = sanitize_crd_name(file_name)
             actual_file_name = self._get_file_path(rule_name, group_name, crd_name)
             file_path = f"{self.settings.git_rules_path}/{actual_file_name}"
             full_path = self.git_manager.repo_path / file_path
