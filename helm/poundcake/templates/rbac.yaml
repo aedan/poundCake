@@ -58,4 +58,33 @@ subjects:
     name: {{ include "poundcake.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 {{- end }}
+{{- if .Values.prometheus.useCrds }}
+---
+# ClusterRole for managing PrometheusRule CRDs
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "poundcake.fullname" . }}-prometheus-rules
+  labels:
+    {{- include "poundcake.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["prometheusrules"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "poundcake.fullname" . }}-prometheus-rules
+  labels:
+    {{- include "poundcake.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "poundcake.fullname" . }}-prometheus-rules
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "poundcake.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
 {{- end }}
