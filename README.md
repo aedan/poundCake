@@ -551,12 +551,6 @@ Access the web UI at `/ui` to manage your PoundCake instance:
 - State Store connectivity monitoring
 - Overall system health indicators
 
-**Settings Tab**:
-- View current configuration
-- StackStorm API endpoint settings
-- Prometheus CRD configuration
-- Git repository integration settings
-
 ### Configure Alertmanager
 
 Point Alertmanager to the PoundCake webhook:
@@ -568,6 +562,256 @@ receivers:
       - url: 'http://poundcake:8080/webhook'
         send_resolved: true
 ```
+
+## Helm Values Reference
+
+This section documents all available configuration options in the Helm chart's `values.yaml` file.
+
+### Deployment Settings
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `replicaCount` | Number of PoundCake replicas (requires Redis for > 1) | `1` |
+| `image.repository` | Container image repository | `ghcr.io/aedan/poundcake` |
+| `image.pullPolicy` | Image pull policy | `IfNotPresent` |
+| `image.tag` | Image tag (defaults to chart appVersion) | `""` |
+| `imagePullSecrets` | Image pull secrets for private registries | `[]` |
+| `nameOverride` | Override the chart name | `""` |
+| `fullnameOverride` | Override the full resource names | `""` |
+
+### Service Account
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `serviceAccount.create` | Create a service account | `true` |
+| `serviceAccount.annotations` | Annotations for service account | `{}` |
+| `serviceAccount.name` | Service account name (auto-generated if empty) | `""` |
+
+### Pod Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `podAnnotations` | Annotations to add to pods | `{}` |
+| `podSecurityContext.fsGroup` | Filesystem group for pod volumes | `1000` |
+| `securityContext.capabilities.drop` | Linux capabilities to drop | `["ALL"]` |
+| `securityContext.readOnlyRootFilesystem` | Mount root filesystem as read-only | `true` |
+| `securityContext.runAsNonRoot` | Run as non-root user | `true` |
+| `securityContext.runAsUser` | User ID to run as | `1000` |
+
+### Service
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `service.type` | Kubernetes service type | `ClusterIP` |
+| `service.port` | Service port | `8080` |
+
+### Ingress
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `ingress.enabled` | Enable ingress | `false` |
+| `ingress.className` | Ingress class name | `""` |
+| `ingress.annotations` | Ingress annotations | `{}` |
+| `ingress.hosts` | Ingress hosts configuration | See values.yaml |
+| `ingress.tls` | Ingress TLS configuration | `[]` |
+
+### Resources
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `resources.limits.cpu` | CPU limit | `500m` |
+| `resources.limits.memory` | Memory limit | `256Mi` |
+| `resources.requests.cpu` | CPU request | `100m` |
+| `resources.requests.memory` | Memory request | `128Mi` |
+
+### Autoscaling
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `autoscaling.enabled` | Enable horizontal pod autoscaling | `false` |
+| `autoscaling.minReplicas` | Minimum replicas | `1` |
+| `autoscaling.maxReplicas` | Maximum replicas | `5` |
+| `autoscaling.targetCPUUtilizationPercentage` | Target CPU utilization | `80` |
+
+### Scheduling
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `nodeSelector` | Node labels for pod assignment | `{}` |
+| `tolerations` | Tolerations for pod assignment | `[]` |
+| `affinity` | Affinity rules for pod assignment | `{}` |
+
+### PoundCake Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `config.host` | Server bind address | `0.0.0.0` |
+| `config.port` | Server port | `8080` |
+| `config.debug` | Enable debug mode | `false` |
+| `config.logLevel` | Logging level (DEBUG, INFO, WARNING, ERROR) | `INFO` |
+| `config.logFormat` | Log format (json, console) | `json` |
+| `config.metricsEnabled` | Enable Prometheus metrics | `true` |
+| `config.metricsPath` | Metrics endpoint path | `/metrics` |
+| `config.defaultTimeout` | Default remediation action timeout (seconds) | `300` |
+| `config.maxConcurrentRemediations` | Maximum concurrent remediations | `10` |
+
+### StackStorm Connection
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `stackstorm.url` | StackStorm API URL | `http://stackstorm-st2api.stackstorm.svc.cluster.local:9101` |
+| `stackstorm.authUrl` | StackStorm Auth service URL (falls back to url) | `http://stackstorm-st2auth.stackstorm.svc.cluster.local:9100` |
+| `stackstorm.verifySsl` | Verify SSL certificates | `false` |
+| `stackstorm.apiKey` | StackStorm API key | `""` |
+| `stackstorm.authToken` | StackStorm auth token | `""` |
+| `stackstorm.existingSecret` | Reference to existing secret with credentials | `""` |
+| `stackstorm.secretKeys.apiKey` | Key in secret for API key | `api-key` |
+| `stackstorm.secretKeys.authToken` | Key in secret for auth token | `auth-token` |
+| `stackstorm.autoDiscover` | Auto-discover StackStorm in cluster | `true` |
+| `stackstorm.discoverAcrossNamespaces` | Search for StackStorm across namespaces | `true` |
+| `stackstorm.adminUser` | Admin username for API key generation | `st2admin` |
+| `stackstorm.adminPassword` | Admin password (use secret recommended) | `""` |
+| `stackstorm.adminPasswordSecret` | Secret name containing admin password | `stackstorm-admin` |
+| `stackstorm.adminPasswordSecretKey` | Key in secret for admin password | `password` |
+
+### Alert Mappings
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `mappings` | YAML alert-to-action mappings | See values.yaml for examples |
+
+Mappings are defined as a map where each key is a filename and the value is the YAML content. Example:
+
+```yaml
+mappings:
+  custom.yaml: |
+    alerts:
+      MyAlert:
+        handler: yaml_config
+        actions:
+          - name: fix_action
+            action: core.remote
+            parameters:
+              hosts: "{{instance}}"
+              cmd: "systemctl restart myservice"
+```
+
+### ServiceMonitor
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `serviceMonitor.enabled` | Create ServiceMonitor for Prometheus Operator | `false` |
+| `serviceMonitor.namespace` | Namespace for ServiceMonitor | `""` |
+| `serviceMonitor.interval` | Scrape interval | `30s` |
+| `serviceMonitor.scrapeTimeout` | Scrape timeout | `10s` |
+| `serviceMonitor.labels` | Labels for ServiceMonitor | `{}` |
+
+### Pod Disruption Budget
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `podDisruptionBudget.enabled` | Enable PodDisruptionBudget | `false` |
+| `podDisruptionBudget.minAvailable` | Minimum available pods | `1` |
+
+### Persistence
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `persistence.enabled` | Enable persistent storage for writable mappings | `false` |
+| `persistence.storageClass` | Storage class (empty for default) | `""` |
+| `persistence.accessMode` | Access mode | `ReadWriteOnce` |
+| `persistence.size` | Volume size | `100Mi` |
+
+### Prometheus Integration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `prometheus.url` | Prometheus API URL for querying metrics | `http://prometheus-server.prometheus.svc.cluster.local:9090` |
+| `prometheus.verifySsl` | Verify SSL when connecting to Prometheus | `true` |
+| `prometheus.useCrds` | Enable PrometheusRule CRD management | `true` |
+| `prometheus.crdNamespace` | Namespace for PrometheusRule CRDs | `prometheus` |
+| `prometheus.crdLabels` | Labels to apply to PrometheusRule CRDs | `{}` |
+
+When `prometheus.useCrds` is enabled, PoundCake can create and manage PrometheusRule CRDs directly through the UI. Changes take effect within minutes via the Prometheus Operator.
+
+### Git Repository Integration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `git.enabled` | Enable Git integration for rule management | `false` |
+| `git.repoUrl` | Git repository URL (HTTPS or SSH) | `""` |
+| `git.branch` | Branch to create PRs against | `main` |
+| `git.rulesPath` | Path to Prometheus rules directory in repo | `prometheus/rules` |
+| `git.filePerAlert` | Create separate file for each alert | `true` |
+| `git.filePattern` | File naming pattern (variables: {alert_name}, {group_name}, {crd_name}) | `{alert_name}.yaml` |
+| `git.token` | Git access token (for HTTPS) | `""` |
+| `git.sshKeyPath` | Path to SSH key (for SSH) | `""` |
+| `git.userName` | Git commit author name | `PoundCake` |
+| `git.userEmail` | Git commit author email | `poundcake@example.com` |
+| `git.provider` | Git provider (github, gitlab, gitea, none) | `github` |
+| `git.existingSecret` | Reference to existing secret with Git credentials | `""` |
+| `git.secretKeys.token` | Key in secret for Git token | `git-token` |
+| `git.secretKeys.sshKey` | Key in secret for SSH key | `git-ssh-key` |
+
+Git integration enables GitOps workflow: edit Prometheus rules in the UI → automatically commit to Git → create PR for review. Works alongside CRD management for audit trail and persistence.
+
+### Authentication
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `auth.enabled` | Enable authentication for web UI and API | `false` |
+| `auth.sessionTimeout` | Session timeout in seconds | `86400` (24 hours) |
+
+When enabled, a random admin password is auto-generated on first install and stored in a secret named `<release-name>-admin`. Username is always `admin`.
+
+### Redis State Management
+
+Redis is required for horizontal scaling (replicaCount > 1) to enable distributed locking and shared alert state across instances.
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `redis.enabled` | Enable Redis for state management | `false` |
+| `redis.deploy` | Deploy Redis as part of this chart | `true` |
+| `redis.image.repository` | Redis image repository | `redis` |
+| `redis.image.tag` | Redis image tag | `7-alpine` |
+| `redis.image.pullPolicy` | Redis image pull policy | `IfNotPresent` |
+| `redis.password` | Redis password | `""` |
+| `redis.existingSecret` | Reference to existing secret with Redis password | `""` |
+| `redis.secretKey` | Key in secret for Redis password | `redis-password` |
+
+#### Redis Resources
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `redis.resources.limits.cpu` | Redis CPU limit | `500m` |
+| `redis.resources.limits.memory` | Redis memory limit | `256Mi` |
+| `redis.resources.requests.cpu` | Redis CPU request | `100m` |
+| `redis.resources.requests.memory` | Redis memory request | `128Mi` |
+
+#### Redis Persistence
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `redis.persistence.enabled` | Enable Redis persistence | `true` |
+| `redis.persistence.storageClass` | Storage class (empty for default) | `""` |
+| `redis.persistence.accessMode` | Access mode | `ReadWriteOnce` |
+| `redis.persistence.size` | Volume size | `1Gi` |
+
+#### External Redis
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `redis.external.url` | External Redis URL (when deploy: false) | `""` |
+| `redis.external.password` | External Redis password | `""` |
+| `redis.external.existingSecret` | Secret for external Redis password | `""` |
+| `redis.external.secretKey` | Key in secret for external Redis password | `redis-password` |
+
+#### Redis State Settings
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `redis.alertTtlHours` | TTL for resolved alerts in hours | `24` |
+| `redis.lockTimeoutSeconds` | Distributed lock timeout in seconds | `300` |
 
 ## Architecture
 

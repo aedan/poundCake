@@ -938,7 +938,7 @@ def get_management_ui_html() -> str:
             <button class="tab" onclick="showTab('mappings')">Mappings</button>
             <button class="tab" onclick="showTab('actions')">StackStorm Actions</button>
             <button class="tab" onclick="showTab('history')">Execution History</button>
-            <button class="tab" onclick="showTab('settings')">Settings</button>
+            <button class="tab" onclick="showTab('health')">Health</button>
         </div>
 
         <div id="dashboard" class="panel active">
@@ -1069,9 +1069,9 @@ def get_management_ui_html() -> str:
             </table>
         </div>
 
-        <div id="settings" class="panel">
-            <h2 style="margin-bottom: 20px;">Configuration</h2>
-            <div id="settings-content"></div>
+        <div id="health" class="panel">
+            <h2 style="margin-bottom: 20px;">System Health</h2>
+            <div class="dashboard-grid" id="health-metrics"></div>
         </div>
     </div>
 
@@ -1214,7 +1214,7 @@ def get_management_ui_html() -> str:
             if (tab === 'mappings') loadMappings();
             if (tab === 'actions') { loadPacks(); loadActions(); }
             if (tab === 'history') loadHistory();
-            if (tab === 'settings') loadSettings();
+            if (tab === 'health') loadHealth();
         }
 
         // Alert tracking functions
@@ -2018,95 +2018,64 @@ actions:
             }
         }
 
-        // Settings functions
-        async function loadSettings() {
+        // Health functions
+        async function loadHealth() {
             try {
-                const res = await fetch('/api/settings');
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-                }
-                const settings = await res.json();
-                console.log('Settings data:', settings);
+                const healthRes = await fetch('/health');
+                const health = await healthRes.json();
 
-                const contentDiv = document.getElementById('settings-content');
+                const metricsDiv = document.getElementById('health-metrics');
+                const stackstormClass = health.stackstorm === 'healthy' ? 'healthy' : 'error';
+                const stateClass = health.state_store === 'healthy' ? 'healthy' : 'error';
+                const overallClass = health.status === 'healthy' ? 'healthy' : (health.status === 'degraded' ? 'warning' : 'error');
 
-            let gitSection = '';
-            if (settings.git_enabled) {
-                gitSection = `
-                    <div class="config-section">
-                        <h3>Git Configuration</h3>
-                        <div class="config-item">
-                            <div class="key">Enabled</div>
-                            <div class="value">Yes</div>
+                metricsDiv.innerHTML = `
+                    <div class="dashboard-card ${overallClass}">
+                        <h3><span class="health-indicator ${overallClass}"></span>Overall System</h3>
+                        <div class="metric-row">
+                            <span class="metric-label">Status</span>
+                            <span class="metric-value">${health.status.toUpperCase()}</span>
                         </div>
-                        <div class="config-item">
-                            <div class="key">Provider</div>
-                            <div class="value">${settings.git_provider || 'Not configured'}</div>
+                        <div class="metric-row">
+                            <span class="metric-label">Instance ID</span>
+                            <span class="metric-value" style="font-size: 12px;">${health.instance_id || 'Unknown'}</span>
                         </div>
-                        <div class="config-item">
-                            <div class="key">Repository</div>
-                            <div class="value">${settings.git_repo_url || 'Not configured'}</div>
+                        <div class="metric-row">
+                            <span class="metric-label">Handlers</span>
+                            <span class="metric-value">${health.handlers || 0}</span>
                         </div>
-                        <div class="config-item">
-                            <div class="key">Branch</div>
-                            <div class="value">${settings.git_branch || 'Not configured'}</div>
+                        <div class="metric-row">
+                            <span class="metric-label">Last Updated</span>
+                            <span class="metric-value" style="font-size: 12px;">${new Date().toLocaleString()}</span>
+                        </div>
+                    </div>
+                    <div class="dashboard-card ${stackstormClass}">
+                        <h3><span class="health-indicator ${stackstormClass}"></span>StackStorm</h3>
+                        <div class="metric-row">
+                            <span class="metric-label">Connection</span>
+                            <span class="metric-value">${health.stackstorm ? 'HEALTHY' : 'UNHEALTHY'}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">API Accessible</span>
+                            <span class="metric-value">${health.stackstorm ? 'Yes' : 'No'}</span>
+                        </div>
+                    </div>
+                    <div class="dashboard-card ${stateClass}">
+                        <h3><span class="health-indicator ${stateClass}"></span>State Store</h3>
+                        <div class="metric-row">
+                            <span class="metric-label">Status</span>
+                            <span class="metric-value">${health.state_store ? 'HEALTHY' : 'UNHEALTHY'}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Connection</span>
+                            <span class="metric-value">${health.state_store ? 'Connected' : 'Unavailable'}</span>
                         </div>
                     </div>
                 `;
-            } else {
-                gitSection = `
-                    <div class="config-section">
-                        <h3>Git Configuration</h3>
-                        <div class="config-item">
-                            <div class="key">Enabled</div>
-                            <div class="value">No</div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            let prometheusSection = '';
-            if (settings.prometheus_use_crds) {
-                prometheusSection = `
-                    <div class="config-section">
-                        <h3>Prometheus Configuration</h3>
-                        <div class="config-item">
-                            <div class="key">CRD Mode</div>
-                            <div class="value">Enabled</div>
-                        </div>
-                        <div class="config-item">
-                            <div class="key">CRD Namespace</div>
-                            <div class="value">${settings.prometheus_crd_namespace || 'Not configured'}</div>
-                        </div>
-                    </div>
-                `;
-            } else {
-                prometheusSection = `
-                    <div class="config-section">
-                        <h3>Prometheus Configuration</h3>
-                        <div class="config-item">
-                            <div class="key">CRD Mode</div>
-                            <div class="value">Disabled</div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            contentDiv.innerHTML = `
-                <div class="config-section">
-                    <h3>StackStorm Configuration</h3>
-                    <div class="config-item">
-                        <div class="key">API URL</div>
-                        <div class="value">${settings.stackstorm_url || 'Not configured'}</div>
-                    </div>
-                </div>
-                ${prometheusSection}
-                ${gitSection}
-            `;
             } catch (error) {
-                console.error('Error loading settings:', error);
-                document.getElementById('settings-content').innerHTML =
-                    '<div class="config-section"><h3>Error Loading Settings</h3><p>' + error.message + '</p></div>';
+                console.error('Error loading health:', error);
+                document.getElementById('health-metrics').innerHTML =
+                    '<div class="dashboard-card error"><h3>Error Loading Health Data</h3><p>' + error.message + '</p></div>';
             }
         }
 
