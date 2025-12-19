@@ -1664,19 +1664,23 @@ actions:
                         <span class="metric-label">Instance</span>
                         <span class="metric-value">${health.instance_id || 'Unknown'}</span>
                     </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Handlers</span>
+                        <span class="metric-value">${health.handlers || 0}</span>
+                    </div>
                 </div>
                 <div class="dashboard-card ${stackstormClass}">
                     <h3>StackStorm</h3>
                     <div class="metric-row">
                         <span class="metric-label">Status</span>
-                        <span class="metric-value">${health.stackstorm.toUpperCase()}</span>
+                        <span class="metric-value">${health.stackstorm ? 'HEALTHY' : 'UNHEALTHY'}</span>
                     </div>
                 </div>
                 <div class="dashboard-card ${stateClass}">
                     <h3>State Store</h3>
                     <div class="metric-row">
                         <span class="metric-label">Status</span>
-                        <span class="metric-value">${health.state_store.toUpperCase()}</span>
+                        <span class="metric-value">${health.state_store ? 'HEALTHY' : 'UNHEALTHY'}</span>
                     </div>
                     <div class="metric-row">
                         <span class="metric-label">Total Alerts</span>
@@ -1757,22 +1761,26 @@ actions:
                     <h3><span class="health-indicator ${stackstormClass}"></span>StackStorm</h3>
                     <div class="metric-row">
                         <span class="metric-label">Connection</span>
-                        <span class="metric-value">${health.stackstorm.toUpperCase()}</span>
+                        <span class="metric-value">${health.stackstorm ? 'HEALTHY' : 'UNHEALTHY'}</span>
                     </div>
                     <div class="metric-row">
                         <span class="metric-label">API Accessible</span>
-                        <span class="metric-value">${health.stackstorm === 'healthy' ? 'Yes' : 'No'}</span>
+                        <span class="metric-value">${health.stackstorm ? 'Yes' : 'No'}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Handlers Loaded</span>
+                        <span class="metric-value">${health.handlers || 0}</span>
                     </div>
                 </div>
                 <div class="dashboard-card ${stateClass}">
                     <h3><span class="health-indicator ${stateClass}"></span>State Store</h3>
                     <div class="metric-row">
                         <span class="metric-label">Status</span>
-                        <span class="metric-value">${health.state_store.toUpperCase()}</span>
+                        <span class="metric-value">${health.state_store ? 'HEALTHY' : 'UNHEALTHY'}</span>
                     </div>
                     <div class="metric-row">
-                        <span class="metric-label">Type</span>
-                        <span class="metric-value">${health.state_store === 'healthy' ? 'Connected' : 'Unavailable'}</span>
+                        <span class="metric-label">Connection</span>
+                        <span class="metric-value">${health.state_store ? 'Connected' : 'Unavailable'}</span>
                     </div>
                 </div>
             `;
