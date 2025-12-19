@@ -108,6 +108,12 @@ class PrometheusCRDManager:
 
         try:
             all_crds = await self.get_prometheus_rules()
+            logger.info(
+                "Searching through CRDs for rule",
+                total_crds=len(all_crds),
+                rule=rule_name,
+                group=group_name,
+            )
 
             for crd in all_crds:
                 spec = crd.get("spec", {})
@@ -167,20 +173,34 @@ class PrometheusCRDManager:
 
         try:
             # First, try to find the existing CRD containing this rule
+            logger.info(
+                "Searching for existing CRD containing rule",
+                rule=rule_name,
+                group=group_name,
+                sanitized_crd_name=crd_name,
+            )
             existing = await self.find_crd_containing_rule(rule_name, group_name)
 
             if existing:
                 # Update the rule in the existing CRD
+                logger.info(
+                    "Updating rule in existing CRD",
+                    rule=rule_name,
+                    crd=existing["metadata"]["name"],
+                )
                 return await self._update_rule_in_crd(existing, rule_name, group_name, rule_data)
             else:
                 # Try to get the CRD by name in case it's a new rule in an existing CRD
+                logger.info("Rule not found, trying CRD by name", crd_name=crd_name)
                 crd_by_name = await self.get_prometheus_rule(crd_name)
                 if crd_by_name:
+                    logger.info("Found CRD by name, updating", crd_name=crd_name)
                     return await self._update_rule_in_crd(
                         crd_by_name, rule_name, group_name, rule_data
                     )
                 else:
                     # Create a new CRD
+                    logger.info("Creating new CRD", crd_name=crd_name, rule=rule_name)
                     return await self._create_rule_crd(crd_name, group_name, rule_name, rule_data)
         except Exception as e:
             logger.error("Failed to create/update PrometheusRule", error=str(e))
