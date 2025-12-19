@@ -5,8 +5,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import structlog
-from fastapi import Cookie, HTTPException, Request, Response, status
-from fastapi.responses import RedirectResponse
+from fastapi import Cookie, HTTPException, Request, status
 
 from poundcake.config import get_settings
 
