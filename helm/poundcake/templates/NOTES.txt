@@ -28,5 +28,15 @@ To get the application URL, run:
 Configure Alertmanager to send webhooks to:
   http://{{ include "poundcake.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}/webhook
 
+{{- if .Values.auth.enabled }}
+
+AUTHENTICATION ENABLED:
+  Username: admin
+
+  To retrieve the admin password, run:
+    kubectl get secret {{ include "poundcake.fullname" . }}-admin -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d && echo
+
+{{- end }}
+
 For more information, visit:
   https://github.com/yourusername/poundcake

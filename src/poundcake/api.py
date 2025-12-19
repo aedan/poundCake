@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import structlog
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import Cookie, Depends, FastAPI, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from prometheus_client import (
@@ -134,6 +134,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    from poundcake.auth import require_auth_if_enabled
+
     settings = get_settings()
 
     app = FastAPI(
@@ -307,14 +309,19 @@ def create_app() -> FastAPI:
 
     # Management API endpoints
     @app.get("/api/mappings")
-    async def list_mappings() -> dict[str, Any]:
+    async def list_mappings(
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """List all remediation mappings."""
         manager = get_mapping_manager()
         mappings = manager.list_mappings()
         return {"mappings": mappings}
 
     @app.get("/api/mappings/{alert_name}")
-    async def get_mapping(alert_name: str) -> dict[str, Any]:
+    async def get_mapping(
+        alert_name: str,
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """Get a specific mapping by alert name."""
         manager = get_mapping_manager()
         mapping = manager.get_mapping(alert_name)
@@ -323,7 +330,10 @@ def create_app() -> FastAPI:
         return {"alert_name": alert_name, "config": mapping}
 
     @app.post("/api/mappings")
-    async def create_mapping(data: MappingCreate) -> dict[str, Any]:
+    async def create_mapping(
+        data: MappingCreate,
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """Create a new remediation mapping."""
         manager = get_mapping_manager()
         success = manager.create_mapping(data.alert_name, data.config, data.filename)
@@ -332,7 +342,11 @@ def create_app() -> FastAPI:
         return {"status": "created", "alert_name": data.alert_name}
 
     @app.put("/api/mappings/{alert_name}")
-    async def update_mapping(alert_name: str, data: MappingUpdate) -> dict[str, Any]:
+    async def update_mapping(
+        alert_name: str,
+        data: MappingUpdate,
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """Update an existing remediation mapping."""
         manager = get_mapping_manager()
         success = manager.update_mapping(alert_name, data.config)
@@ -341,7 +355,10 @@ def create_app() -> FastAPI:
         return {"status": "updated", "alert_name": alert_name}
 
     @app.delete("/api/mappings/{alert_name}")
-    async def delete_mapping(alert_name: str) -> dict[str, Any]:
+    async def delete_mapping(
+        alert_name: str,
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """Delete a remediation mapping."""
         manager = get_mapping_manager()
         success = manager.delete_mapping(alert_name)
@@ -350,7 +367,9 @@ def create_app() -> FastAPI:
         return {"status": "deleted", "alert_name": alert_name}
 
     @app.get("/api/mappings/export")
-    async def export_mappings() -> Response:
+    async def export_mappings(
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> Response:
         """Export all mappings as YAML."""
         manager = get_mapping_manager()
         yaml_content = manager.export_mappings()
@@ -361,7 +380,10 @@ def create_app() -> FastAPI:
         )
 
     @app.post("/api/mappings/import")
-    async def import_mappings(data: MappingImport) -> dict[str, Any]:
+    async def import_mappings(
+        data: MappingImport,
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """Import mappings from YAML."""
         manager = get_mapping_manager()
         result = manager.import_mappings(data.yaml_content, data.filename, data.overwrite)
@@ -374,6 +396,7 @@ def create_app() -> FastAPI:
     async def list_stackstorm_actions(
         pack: str | None = None,
         limit: int = 100,
+        _user: str | None = Depends(require_auth_if_enabled),
     ) -> dict[str, Any]:
         """List available StackStorm actions."""
         from poundcake.handlers import get_registry
@@ -384,7 +407,10 @@ def create_app() -> FastAPI:
         return {"actions": actions}
 
     @app.get("/api/stackstorm/actions/{action_ref:path}")
-    async def get_stackstorm_action(action_ref: str) -> dict[str, Any]:
+    async def get_stackstorm_action(
+        action_ref: str,
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """Get details of a specific StackStorm action."""
         from poundcake.handlers import get_registry
 
@@ -396,7 +422,9 @@ def create_app() -> FastAPI:
         return action
 
     @app.get("/api/stackstorm/packs")
-    async def list_stackstorm_packs() -> dict[str, Any]:
+    async def list_stackstorm_packs(
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """List available StackStorm packs."""
         from poundcake.handlers import get_registry
 
@@ -409,6 +437,7 @@ def create_app() -> FastAPI:
     async def list_stackstorm_executions(
         limit: int = 50,
         action: str | None = None,
+        _user: str | None = Depends(require_auth_if_enabled),
     ) -> dict[str, Any]:
         """List StackStorm execution history."""
         from poundcake.handlers import get_registry
@@ -420,7 +449,9 @@ def create_app() -> FastAPI:
 
     @app.put("/api/stackstorm/actions/{action_ref:path}")
     async def update_stackstorm_action(
-        action_ref: str, action_data: dict[str, Any]
+        action_ref: str,
+        action_data: dict[str, Any],
+        _user: str | None = Depends(require_auth_if_enabled),
     ) -> dict[str, Any]:
         """Update a StackStorm action definition."""
         from poundcake.handlers import get_registry
@@ -433,7 +464,10 @@ def create_app() -> FastAPI:
         return result
 
     @app.post("/api/stackstorm/actions")
-    async def create_stackstorm_action(action_data: dict[str, Any]) -> dict[str, Any]:
+    async def create_stackstorm_action(
+        action_data: dict[str, Any],
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """Create a new StackStorm action."""
         from poundcake.handlers import get_registry
 
@@ -445,7 +479,10 @@ def create_app() -> FastAPI:
         return result
 
     @app.delete("/api/stackstorm/actions/{action_ref:path}")
-    async def delete_stackstorm_action(action_ref: str) -> dict[str, Any]:
+    async def delete_stackstorm_action(
+        action_ref: str,
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """Delete a StackStorm action."""
         from poundcake.handlers import get_registry
 
@@ -458,7 +495,9 @@ def create_app() -> FastAPI:
 
     # Prometheus endpoints
     @app.get("/api/prometheus/rules")
-    async def list_prometheus_rules() -> dict[str, Any]:
+    async def list_prometheus_rules(
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """List Prometheus alert rules."""
         from poundcake.prometheus import get_prometheus_client
 
@@ -467,7 +506,9 @@ def create_app() -> FastAPI:
         return {"rules": rules}
 
     @app.get("/api/prometheus/rule-groups")
-    async def list_prometheus_rule_groups() -> dict[str, Any]:
+    async def list_prometheus_rule_groups(
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """List Prometheus rule groups."""
         from poundcake.prometheus import get_prometheus_client
 
@@ -476,7 +517,9 @@ def create_app() -> FastAPI:
         return {"groups": groups}
 
     @app.get("/api/prometheus/health")
-    async def prometheus_health() -> dict[str, Any]:
+    async def prometheus_health(
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """Check Prometheus health."""
         from poundcake.prometheus import get_prometheus_client
 
@@ -490,6 +533,7 @@ def create_app() -> FastAPI:
         group_name: str,
         file_name: str,
         rule_data: dict[str, Any],
+        _user: str | None = Depends(require_auth_if_enabled),
     ) -> dict[str, Any]:
         """Update a Prometheus alert rule."""
         from poundcake.prometheus_rule_manager import get_prometheus_rule_manager
@@ -506,6 +550,7 @@ def create_app() -> FastAPI:
         group_name: str,
         file_name: str,
         rule_data: dict[str, Any],
+        _user: str | None = Depends(require_auth_if_enabled),
     ) -> dict[str, Any]:
         """Create a new Prometheus alert rule."""
         from poundcake.prometheus_rule_manager import get_prometheus_rule_manager
@@ -521,6 +566,7 @@ def create_app() -> FastAPI:
         rule_name: str,
         group_name: str,
         file_name: str,
+        _user: str | None = Depends(require_auth_if_enabled),
     ) -> dict[str, Any]:
         """Delete a Prometheus alert rule."""
         from poundcake.prometheus_rule_manager import get_prometheus_rule_manager
@@ -532,7 +578,9 @@ def create_app() -> FastAPI:
         return result
 
     @app.get("/api/settings")
-    async def get_settings_info() -> dict[str, Any]:
+    async def get_settings_info(
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
         """Get PoundCake settings information (non-sensitive)."""
         from poundcake.config import get_settings
 
@@ -549,6 +597,45 @@ def create_app() -> FastAPI:
             "stackstorm_url": settings.stackstorm_url,
         }
 
+    # Authentication endpoints
+    @app.get("/login", response_class=HTMLResponse)
+    async def login_page() -> str:
+        """Login page."""
+        return get_login_page_html()
+
+    @app.post("/api/login")
+    async def login(
+        request: Request, response: Response, username: str = Form(...), password: str = Form(...)
+    ) -> dict[str, str]:
+        """Login endpoint."""
+        from poundcake.auth import create_session, verify_credentials
+
+        if not verify_credentials(username, password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+            )
+
+        session_token = create_session(username)
+        response.set_cookie(
+            key="session",
+            value=session_token,
+            httponly=True,
+            secure=False,  # Set to True in production with HTTPS
+            samesite="lax",
+            max_age=get_settings().auth_session_timeout,
+        )
+
+        return {"status": "success", "redirect": "/ui"}
+
+    @app.post("/api/logout")
+    async def logout(response: Response, session: str | None = Cookie(default=None)) -> dict[str, str]:
+        """Logout endpoint."""
+        from poundcake.auth import destroy_session
+
+        destroy_session(session)
+        response.delete_cookie("session")
+        return {"status": "success", "redirect": "/login"}
+
     # Root redirect
     @app.get("/")
     async def root() -> Any:
@@ -559,11 +646,177 @@ def create_app() -> FastAPI:
 
     # Web UI
     @app.get("/ui", response_class=HTMLResponse)
-    async def ui() -> str:
+    async def ui(
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> str:
         """Web UI for managing remediations."""
         return get_management_ui_html()
 
     return app
+
+
+def get_login_page_html() -> str:
+    """Return the HTML for the login page."""
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PoundCake - Login</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .login-header h1 {
+            font-size: 28px;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        .login-header p {
+            color: #666;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .btn-login:hover {
+            background: #5568d3;
+        }
+        .btn-login:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .error-message {
+            display: none;
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #fcc;
+        }
+        .error-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>PoundCake</h1>
+            <p>Auto-remediation Management</p>
+        </div>
+        <div id="error-message" class="error-message"></div>
+        <form id="login-form">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn-login">Login</button>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('login-form');
+        const errorMessage = document.getElementById('error-message');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const submitBtn = form.querySelector('button[type="submit"]');
+
+            // Disable button and show loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Logging in...';
+            errorMessage.classList.remove('show');
+
+            try {
+                const formData = new FormData();
+                formData.append('username', username);
+                formData.append('password', password);
+
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    // Redirect to UI on success
+                    window.location.href = data.redirect || '/ui';
+                } else {
+                    // Show error message
+                    errorMessage.textContent = data.detail || 'Invalid username or password';
+                    errorMessage.classList.add('show');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Login';
+                }
+            } catch (err) {
+                errorMessage.textContent = 'An error occurred. Please try again.';
+                errorMessage.classList.add('show');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Login';
+            }
+        });
+    </script>
+</body>
+</html>"""
 
 
 def get_management_ui_html() -> str:
@@ -665,8 +918,13 @@ def get_management_ui_html() -> str:
 <body>
     <header>
         <div class="container">
-            <h1>PoundCake - Remediation Management</h1>
-            <div class="header-stats" id="header-stats"></div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1>PoundCake - Remediation Management</h1>
+                    <div class="header-stats" id="header-stats"></div>
+                </div>
+                <button class="btn" onclick="logout()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">Logout</button>
+            </div>
         </div>
     </header>
 
@@ -1854,6 +2112,25 @@ actions:
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js';
         document.head.appendChild(script);
+
+        // Logout function
+        async function logout() {
+            if (!confirm('Are you sure you want to logout?')) return;
+
+            try {
+                const res = await fetch('/api/logout', {
+                    method: 'POST'
+                });
+
+                if (res.ok) {
+                    window.location.href = '/login';
+                } else {
+                    alert('Failed to logout. Please try again.');
+                }
+            } catch (err) {
+                alert('An error occurred during logout.');
+            }
+        }
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {

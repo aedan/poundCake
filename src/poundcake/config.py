@@ -82,6 +82,14 @@ class Settings(BaseSettings):
     # Instance identification (for tracking which instance processed an alert)
     instance_id: str = Field(default_factory=lambda: os.getenv("HOSTNAME", "poundcake-0"))
 
+    # Authentication settings
+    auth_enabled: bool = False
+    auth_secret_name: str = "poundcake-admin"  # Kubernetes secret name for admin credentials
+    auth_session_timeout: int = 86400  # Session timeout in seconds (24 hours)
+    auth_secret_key: str = Field(
+        default_factory=lambda: os.urandom(32).hex()
+    )  # Secret key for session signing
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -8,6 +8,7 @@ An extensible auto-remediation framework that bridges Prometheus Alertmanager wi
 - **StackStorm Integration**: Executes remediation actions via StackStorm API
 - **Prometheus Rule Management**: Edit and manage Prometheus alert rules via CRDs and GitOps
 - **Management UI**: Comprehensive web interface with Dashboard, Health monitoring, and Settings
+- **Authentication**: Optional session-based authentication with Kubernetes secret integration
 - **Command-Line Interface**: Powerful CLI (`pcake`) for managing alerts and rules
 - **Alert Tracking**: Real-time status tracking through alert lifecycle (received → remediating → resolved)
 - **YAML Configuration**: Define alert-to-action mappings in YAML files
@@ -396,6 +397,116 @@ helm install poundcake oci://ghcr.io/aedan/poundcake \
 | `remediated` | All actions completed |
 | `resolved` | Alert cleared by Alertmanager |
 
+### Authentication
+
+PoundCake supports optional session-based authentication to protect the management UI and API endpoints. When enabled, users must log in with an admin username and password before accessing protected resources.
+
+#### Enable Authentication
+
+Authentication is disabled by default. To enable it:
+
+```bash
+# Enable auth during installation
+helm install poundcake oci://ghcr.io/aedan/poundcake \
+  --namespace poundcake \
+  --create-namespace \
+  --set auth.enabled=true \
+  --set stackstorm.apiKey=your-st2-api-key
+
+# Or upgrade an existing installation
+helm upgrade poundcake oci://ghcr.io/aedan/poundcake \
+  --namespace poundcake \
+  --set auth.enabled=true
+```
+
+#### Retrieve Admin Password
+
+On first installation, a random 24-character password is automatically generated and stored in a Kubernetes secret. On subsequent upgrades, the existing password is preserved.
+
+To retrieve the admin password:
+
+```bash
+# Get the password
+kubectl get secret poundcake-admin -n poundcake \
+  -o jsonpath='{.data.password}' | base64 -d && echo
+
+# The username is always "admin"
+```
+
+#### Login to the UI
+
+When authentication is enabled:
+1. Navigate to the PoundCake URL (e.g., `http://poundcake.example.com`)
+2. You'll be automatically redirected to the login page
+3. Enter username: `admin`
+4. Enter the password retrieved from the secret
+5. Click "Login" to access the management UI
+
+#### Protected Endpoints
+
+When authentication is enabled, the following endpoints require login:
+- `/ui` - Management web interface
+- `/api/mappings/*` - Alert mapping management
+- `/api/stackstorm/*` - StackStorm action management
+- `/api/prometheus/*` - Prometheus rule management
+- `/api/settings` - Configuration settings
+
+#### Public Endpoints
+
+These endpoints remain accessible without authentication:
+- `/login` - Login page
+- `/health` - Health check
+- `/metrics` - Prometheus metrics
+- `/webhook` - Alertmanager webhook receiver
+
+#### Session Management
+
+- **Session Timeout**: 24 hours (configurable via `auth.sessionTimeout`)
+- **Storage**: In-memory sessions (suitable for single instance deployments)
+- **Logout**: Click the "Logout" button in the UI header
+
+#### Configuration Options
+
+```yaml
+# values.yaml
+auth:
+  # Enable authentication
+  enabled: false
+
+  # Session timeout in seconds (default: 24 hours)
+  sessionTimeout: 86400
+```
+
+#### Change Admin Password
+
+To change the admin password:
+
+```bash
+# Delete the existing secret
+kubectl delete secret poundcake-admin -n poundcake
+
+# Helm upgrade will generate a new password
+helm upgrade poundcake oci://ghcr.io/aedan/poundcake --namespace poundcake
+
+# Retrieve the new password
+kubectl get secret poundcake-admin -n poundcake \
+  -o jsonpath='{.data.password}' | base64 -d && echo
+```
+
+Or set a custom password:
+
+```bash
+# Create secret with custom password
+kubectl create secret generic poundcake-admin -n poundcake \
+  --from-literal=username=admin \
+  --from-literal=password=your-custom-password
+
+# Helm upgrade will use the existing secret
+helm upgrade poundcake oci://ghcr.io/aedan/poundcake \
+  --namespace poundcake \
+  --set auth.enabled=true
+```
+
 #### Management UI
 
 Access the web UI at `/ui` to manage your PoundCake instance:
@@ -493,6 +604,9 @@ receivers:
 | `POUNDCAKE_REDIS_PASSWORD` | Redis password | `` |
 | `POUNDCAKE_ALERT_TTL_HOURS` | TTL for resolved alerts | `24` |
 | `POUNDCAKE_LOCK_TIMEOUT_SECONDS` | Distributed lock timeout | `300` |
+| `POUNDCAKE_AUTH_ENABLED` | Enable authentication | `false` |
+| `POUNDCAKE_AUTH_SECRET_NAME` | K8s secret name for admin credentials | `poundcake-admin` |
+| `POUNDCAKE_AUTH_SESSION_TIMEOUT` | Session timeout in seconds | `86400` |
 
 ### YAML Mappings
 

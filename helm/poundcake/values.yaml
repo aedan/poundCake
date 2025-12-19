@@ -242,6 +242,15 @@ git:
     token: "git-token"
     sshKey: "git-ssh-key"
 
+# Authentication configuration
+auth:
+  # Enable authentication for web UI and API
+  enabled: false
+  # Session timeout in seconds (default: 24 hours)
+  sessionTimeout: 86400
+  # Secret name will be: <release-name>-poundcake-admin
+  # Get password with: kubectl get secret <release-name>-poundcake-admin -n <namespace> -o jsonpath='{.data.password}' | base64 -d
+
 # Redis configuration for stateful alert tracking
 # Required for horizontal scaling
 redis:
