@@ -659,7 +659,7 @@ def get_management_ui_html() -> str:
         </div>
     </header>
 
-    <div class="container">
+    <div class="container" style="max-width: 1400px;">
         <div class="tabs">
             <button class="tab active" onclick="showTab('dashboard')">Dashboard</button>
             <button class="tab" onclick="showTab('alerts')">Alert Status</button>
@@ -1555,17 +1555,20 @@ actions:
 
         // Dashboard functions
         async function loadDashboard() {
-            // Load health data for dashboard cards
-            const healthRes = await fetch('/health');
-            const health = await healthRes.json();
+            try {
+                // Load health data for dashboard cards
+                const healthRes = await fetch('/health');
+                const health = await healthRes.json();
 
-            // Load alert stats
-            const statsRes = await fetch('/alerts/stats');
-            const stats = await statsRes.json();
+                // Load alert stats
+                const statsRes = await fetch('/alerts/stats');
+                const stats = await statsRes.json();
 
-            // Load recent history
-            const historyRes = await fetch('/remediations?limit=10');
-            const history = await historyRes.json();
+                // Load recent history
+                const historyRes = await fetch('/remediations?limit=10');
+                const history = await historyRes.json();
+
+                console.log('Dashboard data:', { health, stats, history });
 
             // Update dashboard metrics
             const metricsDiv = document.getElementById('dashboard-metrics');
@@ -1627,28 +1630,35 @@ actions:
             quickStatsDiv.innerHTML = `
                 <div class="metric-row">
                     <span class="metric-label">Active Alerts</span>
-                    <span class="metric-value">${stats.by_status.remediating || 0}</span>
+                    <span class="metric-value">${stats.by_status?.remediating || 0}</span>
                 </div>
                 <div class="metric-row">
                     <span class="metric-label">Resolved Today</span>
-                    <span class="metric-value">${stats.by_status.resolved || 0}</span>
+                    <span class="metric-value">${stats.by_status?.resolved || 0}</span>
                 </div>
                 <div class="metric-row">
                     <span class="metric-label">Total Tracked</span>
-                    <span class="metric-value">${stats.total}</span>
+                    <span class="metric-value">${stats.total || 0}</span>
                 </div>
             `;
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                document.getElementById('dashboard-metrics').innerHTML =
+                    '<div class="dashboard-card error"><h3>Error Loading Dashboard</h3><p>' + error.message + '</p></div>';
+            }
         }
 
         // Health functions
         async function loadHealth() {
-            const res = await fetch('/health');
-            const health = await res.json();
+            try {
+                const res = await fetch('/health');
+                const health = await res.json();
+                console.log('Health data:', health);
 
-            const componentsDiv = document.getElementById('health-components');
-            const stackstormClass = health.stackstorm === 'healthy' ? 'healthy' : 'error';
-            const stateClass = health.state_store === 'healthy' ? 'healthy' : 'error';
-            const overallClass = health.status === 'healthy' ? 'healthy' : (health.status === 'degraded' ? 'warning' : 'error');
+                const componentsDiv = document.getElementById('health-components');
+                const stackstormClass = health.stackstorm === 'healthy' ? 'healthy' : 'error';
+                const stateClass = health.state_store === 'healthy' ? 'healthy' : 'error';
+                const overallClass = health.status === 'healthy' ? 'healthy' : (health.status === 'degraded' ? 'warning' : 'error');
 
             componentsDiv.innerHTML = `
                 <div class="dashboard-card ${overallClass}">
@@ -1689,14 +1699,24 @@ actions:
                     </div>
                 </div>
             `;
+            } catch (error) {
+                console.error('Error loading health:', error);
+                document.getElementById('health-components').innerHTML =
+                    '<div class="dashboard-card error"><h3>Error Loading Health</h3><p>' + error.message + '</p></div>';
+            }
         }
 
         // Settings functions
         async function loadSettings() {
-            const res = await fetch('/api/settings');
-            const settings = await res.json();
+            try {
+                const res = await fetch('/api/settings');
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                const settings = await res.json();
+                console.log('Settings data:', settings);
 
-            const contentDiv = document.getElementById('settings-content');
+                const contentDiv = document.getElementById('settings-content');
 
             let gitSection = '';
             if (settings.git_enabled) {
@@ -1771,6 +1791,11 @@ actions:
                 ${prometheusSection}
                 ${gitSection}
             `;
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                document.getElementById('settings-content').innerHTML =
+                    '<div class="config-section"><h3>Error Loading Settings</h3><p>' + error.message + '</p></div>';
+            }
         }
 
         // Load js-yaml from CDN
