@@ -1,6 +1,6 @@
 """Prometheus Operator CRD manager for PrometheusRule resources."""
 
-from typing import Any, cast
+from typing import Any
 
 import structlog
 
@@ -124,7 +124,7 @@ class PrometheusCRDManager:
                                     group=group_name,
                                     crd=crd["metadata"]["name"],
                                 )
-                                return cast(dict[str, Any], crd)
+                                return crd
 
             logger.warning(
                 "Rule not found in any CRD",
