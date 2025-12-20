@@ -208,6 +208,156 @@ class PrometheusClient:
                 "message": str(e),
             }
 
+    async def get_metric_names(self) -> list[str]:
+        """
+        Fetch all available metric names from Prometheus.
+
+        Returns:
+            List of metric names
+        """
+        try:
+            async with httpx.AsyncClient(
+                verify=self.verify_ssl,
+                timeout=httpx.Timeout(30),
+            ) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/label/__name__/values",
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("status") == "success":
+                        return data.get("data", [])  # type: ignore[no-any-return]
+                    else:
+                        logger.error(
+                            "Prometheus API returned error",
+                            error=data.get("error"),
+                        )
+                        return []
+                else:
+                    logger.error(
+                        "Failed to fetch metric names",
+                        status_code=response.status_code,
+                    )
+                    return []
+        except Exception as e:
+            logger.error("Error fetching metric names", error=str(e))
+            return []
+
+    async def get_label_names(self, metric: str | None = None) -> list[str]:
+        """
+        Fetch all available label names from Prometheus.
+
+        Args:
+            metric: Optional metric name to get labels for a specific metric
+
+        Returns:
+            List of label names
+        """
+        try:
+            async with httpx.AsyncClient(
+                verify=self.verify_ssl,
+                timeout=httpx.Timeout(30),
+            ) as client:
+                # If metric is provided, get labels for that specific metric
+                if metric:
+                    # Query the series endpoint to get labels for this metric
+                    response = await client.get(
+                        f"{self.base_url}/api/v1/series",
+                        params={"match[]": metric},
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("status") == "success":
+                            # Extract unique label names from series data
+                            label_names = set()
+                            for series in data.get("data", []):
+                                label_names.update(series.keys())
+                            # Remove __name__ as it's always present
+                            label_names.discard("__name__")
+                            return sorted(list(label_names))
+                else:
+                    # Get all label names
+                    response = await client.get(
+                        f"{self.base_url}/api/v1/labels",
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("status") == "success":
+                            labels = data.get("data", [])
+                            # Remove __name__ as it's handled separately
+                            return [
+                                label for label in labels if label != "__name__"
+                            ]  # type: ignore[misc]
+
+                logger.error(
+                    "Failed to fetch label names",
+                    status_code=response.status_code,
+                )
+                return []
+        except Exception as e:
+            logger.error("Error fetching label names", error=str(e))
+            return []
+
+    async def get_label_values(
+        self,
+        label_name: str,
+        metric: str | None = None,
+    ) -> list[str]:
+        """
+        Fetch all available values for a specific label.
+
+        Args:
+            label_name: The label name to get values for
+            metric: Optional metric name to filter values
+
+        Returns:
+            List of label values
+        """
+        try:
+            async with httpx.AsyncClient(
+                verify=self.verify_ssl,
+                timeout=httpx.Timeout(30),
+            ) as client:
+                if metric:
+                    # Get label values for a specific metric
+                    response = await client.get(
+                        f"{self.base_url}/api/v1/series",
+                        params={"match[]": metric},
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("status") == "success":
+                            # Extract unique values for this label
+                            values = set()
+                            for series in data.get("data", []):
+                                if label_name in series:
+                                    values.add(series[label_name])
+                            return sorted(list(values))
+                else:
+                    # Get all values for this label
+                    response = await client.get(
+                        f"{self.base_url}/api/v1/label/{label_name}/values",
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("status") == "success":
+                            return data.get("data", [])  # type: ignore[no-any-return]
+
+                logger.error(
+                    "Failed to fetch label values",
+                    label=label_name,
+                    status_code=response.status_code,
+                )
+                return []
+        except Exception as e:
+            logger.error(
+                "Error fetching label values",
+                label=label_name,
+                error=str(e),
+            )
+            return []
+
 
 # Global client instance
 _prometheus_client: PrometheusClient | None = None

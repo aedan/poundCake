@@ -527,6 +527,42 @@ def create_app() -> FastAPI:
         health = await prometheus.health_check()
         return health
 
+    @app.get("/api/prometheus/metrics")
+    async def list_prometheus_metrics(
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
+        """List all available Prometheus metric names."""
+        from poundcake.prometheus import get_prometheus_client
+
+        prometheus = get_prometheus_client()
+        metrics = await prometheus.get_metric_names()
+        return {"metrics": metrics}
+
+    @app.get("/api/prometheus/labels")
+    async def list_prometheus_labels(
+        metric: str | None = None,
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
+        """List all available label names, optionally filtered by metric."""
+        from poundcake.prometheus import get_prometheus_client
+
+        prometheus = get_prometheus_client()
+        labels = await prometheus.get_label_names(metric)
+        return {"labels": labels}
+
+    @app.get("/api/prometheus/label-values/{label_name}")
+    async def list_prometheus_label_values(
+        label_name: str,
+        metric: str | None = None,
+        _user: str | None = Depends(require_auth_if_enabled),
+    ) -> dict[str, Any]:
+        """List all available values for a specific label."""
+        from poundcake.prometheus import get_prometheus_client
+
+        prometheus = get_prometheus_client()
+        values = await prometheus.get_label_values(label_name, metric)
+        return {"values": values}
+
     @app.put("/api/prometheus/rules/{rule_name}")
     async def update_prometheus_rule(
         rule_name: str,
@@ -1168,7 +1204,128 @@ def get_management_ui_html() -> str:
                 </div>
                 <div class="form-group">
                     <label>PromQL Expression</label>
-                    <textarea id="rule-expr" required style="height: 80px; font-family: monospace;" placeholder="up == 0"></textarea>
+                    <div style="margin-bottom: 10px;">
+                        <button type="button" class="btn btn-sm" id="mode-basic" onclick="setPromQLMode('basic')">Basic</button>
+                        <button type="button" class="btn btn-sm" id="mode-advanced" onclick="setPromQLMode('advanced')">Advanced</button>
+                        <button type="button" class="btn btn-sm" id="mode-raw" onclick="setPromQLMode('raw')">Raw PromQL</button>
+                    </div>
+
+                    <!-- Basic Builder Mode -->
+                    <div id="promql-basic-builder" style="display: none; padding: 15px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Metric</label>
+                            <input type="text" id="basic-metric-search" placeholder="Search metrics..." style="width: 100%; margin-bottom: 5px;" oninput="filterMetrics()">
+                            <select id="basic-metric" style="width: 100%;" onchange="onMetricChange()">
+                                <option value="">Select a metric...</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Labels (Filters)</label>
+                            <div id="basic-labels-container"></div>
+                            <button type="button" class="btn btn-sm" onclick="addBasicLabelFilter()" style="margin-top: 5px;">+ Add Label Filter</button>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Comparison</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <select id="basic-operator" style="flex: 0 0 100px;">
+                                    <option value=">">></option>
+                                    <option value="<"><</option>
+                                    <option value="==">==</option>
+                                    <option value="!=">!=</option>
+                                    <option value=">=">=</option>
+                                    <option value="<="><=</option>
+                                </select>
+                                <input type="text" id="basic-threshold" placeholder="Threshold value" style="flex: 1;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Builder Mode -->
+                    <div id="promql-advanced-builder" style="display: none; padding: 15px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Function (Optional)</label>
+                            <select id="advanced-function" style="width: 100%;" onchange="updatePromQLPreview()">
+                                <option value="">None</option>
+                                <option value="rate">rate() - Calculate per-second rate</option>
+                                <option value="irate">irate() - Instant rate</option>
+                                <option value="increase">increase() - Total increase</option>
+                                <option value="delta">delta() - Difference</option>
+                                <option value="deriv">deriv() - Derivative</option>
+                                <option value="avg_over_time">avg_over_time() - Average over time</option>
+                                <option value="min_over_time">min_over_time() - Minimum over time</option>
+                                <option value="max_over_time">max_over_time() - Maximum over time</option>
+                                <option value="sum_over_time">sum_over_time() - Sum over time</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 10px;" id="advanced-range-container" style="display: none;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Range (for rate/increase functions)</label>
+                            <input type="text" id="advanced-range" placeholder="e.g., 5m" style="width: 150px;">
+                            <small style="color: #666; display: block; margin-top: 3px;">Examples: 30s, 5m, 1h</small>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Metric</label>
+                            <input type="text" id="advanced-metric-search" placeholder="Search metrics..." style="width: 100%; margin-bottom: 5px;" oninput="filterMetricsAdvanced()">
+                            <select id="advanced-metric" style="width: 100%;" onchange="onMetricChangeAdvanced()">
+                                <option value="">Select a metric...</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Labels (Filters)</label>
+                            <div id="advanced-labels-container"></div>
+                            <button type="button" class="btn btn-sm" onclick="addAdvancedLabelFilter()" style="margin-top: 5px;">+ Add Label Filter</button>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Aggregation (Optional)</label>
+                            <div style="display: flex; gap: 10px; margin-bottom: 5px;">
+                                <select id="advanced-aggregation" style="flex: 1;" onchange="updatePromQLPreview()">
+                                    <option value="">None</option>
+                                    <option value="sum">sum - Sum values</option>
+                                    <option value="avg">avg - Average values</option>
+                                    <option value="min">min - Minimum value</option>
+                                    <option value="max">max - Maximum value</option>
+                                    <option value="count">count - Count metrics</option>
+                                    <option value="stddev">stddev - Standard deviation</option>
+                                    <option value="stdvar">stdvar - Standard variance</option>
+                                </select>
+                            </div>
+                            <div id="advanced-grouping-container" style="display: none;">
+                                <label style="display: block; margin: 5px 0; font-size: 0.9em;">Group by labels (comma-separated):</label>
+                                <input type="text" id="advanced-grouping" placeholder="e.g., instance, job" style="width: 100%;" oninput="updatePromQLPreview()">
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Comparison</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <select id="advanced-operator" style="flex: 0 0 100px;" onchange="updatePromQLPreview()">
+                                    <option value=">">></option>
+                                    <option value="<"><</option>
+                                    <option value="==">==</option>
+                                    <option value="!=">!=</option>
+                                    <option value=">=">=</option>
+                                    <option value="<="><=</option>
+                                </select>
+                                <input type="text" id="advanced-threshold" placeholder="Threshold value" style="flex: 1;" oninput="updatePromQLPreview()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PromQL Preview (shown in builder modes) -->
+                    <div id="promql-preview-container" style="display: none; margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Generated PromQL:</label>
+                        <div style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 13px; overflow-x: auto;" id="promql-preview"></div>
+                    </div>
+
+                    <!-- Raw PromQL Mode (original textarea) -->
+                    <div id="promql-raw-editor" style="display: none;">
+                        <textarea id="rule-expr" required style="height: 80px; font-family: monospace; width: 100%;" placeholder="up == 0"></textarea>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Duration (for)</label>
@@ -1503,6 +1660,28 @@ def get_management_ui_html() -> str:
                 addRuleAnnotationField(key, value);
             });
 
+            // Initialize PromQL builder
+            await initPromQLBuilder();
+
+            // Clear builder containers
+            document.getElementById('basic-labels-container').innerHTML = '';
+            document.getElementById('advanced-labels-container').innerHTML = '';
+
+            // Reset builder inputs
+            document.getElementById('basic-metric').value = '';
+            document.getElementById('basic-operator').value = '>';
+            document.getElementById('basic-threshold').value = '';
+            document.getElementById('advanced-function').value = '';
+            document.getElementById('advanced-metric').value = '';
+            document.getElementById('advanced-operator').value = '>';
+            document.getElementById('advanced-threshold').value = '';
+            document.getElementById('advanced-aggregation').value = '';
+            document.getElementById('advanced-grouping').value = '';
+            document.getElementById('advanced-range').value = '';
+
+            // Set mode to raw by default (showing existing query)
+            setPromQLMode('raw');
+
             // Update button text based on Git configuration
             try {
                 const settingsRes = await fetch('/api/settings');
@@ -1549,7 +1728,21 @@ def get_management_ui_html() -> str:
             const ruleName = document.getElementById('rule-name').value;
             const groupName = document.getElementById('rule-group').value;
             const fileName = document.getElementById('rule-file').value;
-            const expr = document.getElementById('rule-expr').value;
+
+            // Get PromQL expression based on current mode
+            let expr;
+            if (promqlMode === 'raw') {
+                expr = document.getElementById('rule-expr').value;
+            } else {
+                // Use generated PromQL from builder modes
+                expr = document.getElementById('promql-preview').textContent.trim();
+                // Remove comment lines (lines starting with #)
+                if (expr.startsWith('#')) {
+                    alert('Please complete the PromQL builder or switch to Raw mode to enter a query manually.');
+                    return;
+                }
+            }
+
             const forDuration = document.getElementById('rule-for').value;
 
             // Collect labels
@@ -1665,6 +1858,363 @@ def get_management_ui_html() -> str:
                 const error = await res.json();
                 alert(`Failed to delete rule: ${error.detail || res.statusText}`);
             }
+        }
+
+        // PromQL Builder variables
+        let promqlMode = 'raw';
+        let availableMetrics = [];
+        let availableMetricsAdvanced = [];
+
+        // Initialize PromQL builder
+        async function initPromQLBuilder() {
+            try {
+                const res = await fetch('/api/prometheus/metrics');
+                const data = await res.json();
+                availableMetrics = data.metrics || [];
+                availableMetricsAdvanced = [...availableMetrics];
+
+                // Populate metric dropdowns
+                populateMetricDropdown('basic-metric', availableMetrics);
+                populateMetricDropdown('advanced-metric', availableMetricsAdvanced);
+            } catch (error) {
+                console.error('Failed to load metrics:', error);
+            }
+        }
+
+        function populateMetricDropdown(selectId, metrics) {
+            const select = document.getElementById(selectId);
+            select.innerHTML = '<option value="">Select a metric...</option>';
+            metrics.forEach(metric => {
+                const option = document.createElement('option');
+                option.value = metric;
+                option.textContent = metric;
+                select.appendChild(option);
+            });
+        }
+
+        function filterMetrics() {
+            const search = document.getElementById('basic-metric-search').value.toLowerCase();
+            const filtered = availableMetrics.filter(m => m.toLowerCase().includes(search));
+            populateMetricDropdown('basic-metric', filtered);
+        }
+
+        function filterMetricsAdvanced() {
+            const search = document.getElementById('advanced-metric-search').value.toLowerCase();
+            const filtered = availableMetricsAdvanced.filter(m => m.toLowerCase().includes(search));
+            populateMetricDropdown('advanced-metric', filtered);
+        }
+
+        function setPromQLMode(mode) {
+            promqlMode = mode;
+
+            // Update button styles
+            ['basic', 'advanced', 'raw'].forEach(m => {
+                const btn = document.getElementById(`mode-${m}`);
+                if (m === mode) {
+                    btn.style.backgroundColor = '#2c5282';
+                    btn.style.color = 'white';
+                } else {
+                    btn.style.backgroundColor = '';
+                    btn.style.color = '';
+                }
+            });
+
+            // Show/hide relevant sections
+            document.getElementById('promql-basic-builder').style.display = mode === 'basic' ? 'block' : 'none';
+            document.getElementById('promql-advanced-builder').style.display = mode === 'advanced' ? 'block' : 'none';
+            document.getElementById('promql-raw-editor').style.display = mode === 'raw' ? 'block' : 'none';
+            document.getElementById('promql-preview-container').style.display = (mode === 'basic' || mode === 'advanced') ? 'block' : 'none';
+
+            // Sync data when switching modes
+            if (mode === 'raw') {
+                // When switching to raw, update textarea from current generated query
+                const preview = document.getElementById('promql-preview').textContent;
+                if (preview && preview.trim()) {
+                    document.getElementById('rule-expr').value = preview.trim();
+                }
+            } else if (mode === 'basic') {
+                updateBasicPromQL();
+            } else if (mode === 'advanced') {
+                updatePromQLPreview();
+            }
+        }
+
+        async function onMetricChange() {
+            const metric = document.getElementById('basic-metric').value;
+            updateBasicPromQL();
+        }
+
+        async function onMetricChangeAdvanced() {
+            const metric = document.getElementById('advanced-metric').value;
+            updatePromQLPreview();
+        }
+
+        function addBasicLabelFilter() {
+            const container = document.getElementById('basic-labels-container');
+            const div = document.createElement('div');
+            div.className = 'label-filter';
+            div.style.cssText = 'display: flex; gap: 10px; margin-bottom: 5px; align-items: center;';
+
+            const metric = document.getElementById('basic-metric').value;
+
+            div.innerHTML = `
+                <select class="basic-label-key" style="flex: 1;" onchange="loadBasicLabelValues(this)">
+                    <option value="">Loading labels...</option>
+                </select>
+                <select class="basic-label-op" style="flex: 0 0 60px;" onchange="updateBasicPromQL()">
+                    <option value="=">=</option>
+                    <option value="!=">!=</option>
+                    <option value="=~">=~</option>
+                    <option value="!~">!~</option>
+                </select>
+                <select class="basic-label-value" style="flex: 1;" onchange="updateBasicPromQL()">
+                    <option value="">Select value...</option>
+                </select>
+                <button type="button" class="btn btn-sm" onclick="this.parentElement.remove(); updateBasicPromQL();" style="padding: 5px 10px;">Remove</button>
+            `;
+            container.appendChild(div);
+
+            // Load available labels for this metric
+            loadBasicLabelKeys(div.querySelector('.basic-label-key'), metric);
+        }
+
+        async function loadBasicLabelKeys(select, metric) {
+            try {
+                const url = metric ? `/api/prometheus/labels?metric=${encodeURIComponent(metric)}` : '/api/prometheus/labels';
+                const res = await fetch(url);
+                const data = await res.json();
+                const labels = data.labels || [];
+
+                select.innerHTML = '<option value="">Select label...</option>';
+                labels.forEach(label => {
+                    const option = document.createElement('option');
+                    option.value = label;
+                    option.textContent = label;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load labels:', error);
+                select.innerHTML = '<option value="">Error loading labels</option>';
+            }
+        }
+
+        async function loadBasicLabelValues(labelKeySelect) {
+            const labelKey = labelKeySelect.value;
+            if (!labelKey) return;
+
+            const valueSelect = labelKeySelect.parentElement.querySelector('.basic-label-value');
+            const metric = document.getElementById('basic-metric').value;
+
+            try {
+                const url = metric
+                    ? `/api/prometheus/label-values/${encodeURIComponent(labelKey)}?metric=${encodeURIComponent(metric)}`
+                    : `/api/prometheus/label-values/${encodeURIComponent(labelKey)}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                const values = data.values || [];
+
+                valueSelect.innerHTML = '<option value="">Select value...</option>';
+                values.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = value;
+                    valueSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load label values:', error);
+                valueSelect.innerHTML = '<option value="">Error loading values</option>';
+            }
+
+            updateBasicPromQL();
+        }
+
+        function addAdvancedLabelFilter() {
+            const container = document.getElementById('advanced-labels-container');
+            const div = document.createElement('div');
+            div.className = 'label-filter';
+            div.style.cssText = 'display: flex; gap: 10px; margin-bottom: 5px; align-items: center;';
+
+            const metric = document.getElementById('advanced-metric').value;
+
+            div.innerHTML = `
+                <select class="advanced-label-key" style="flex: 1;" onchange="loadAdvancedLabelValues(this)">
+                    <option value="">Loading labels...</option>
+                </select>
+                <select class="advanced-label-op" style="flex: 0 0 60px;" onchange="updatePromQLPreview()">
+                    <option value="=">=</option>
+                    <option value="!=">!=</option>
+                    <option value="=~">=~</option>
+                    <option value="!~">!~</option>
+                </select>
+                <select class="advanced-label-value" style="flex: 1;" onchange="updatePromQLPreview()">
+                    <option value="">Select value...</option>
+                </select>
+                <button type="button" class="btn btn-sm" onclick="this.parentElement.remove(); updatePromQLPreview();" style="padding: 5px 10px;">Remove</button>
+            `;
+            container.appendChild(div);
+
+            // Load available labels for this metric
+            loadAdvancedLabelKeys(div.querySelector('.advanced-label-key'), metric);
+        }
+
+        async function loadAdvancedLabelKeys(select, metric) {
+            try {
+                const url = metric ? `/api/prometheus/labels?metric=${encodeURIComponent(metric)}` : '/api/prometheus/labels';
+                const res = await fetch(url);
+                const data = await res.json();
+                const labels = data.labels || [];
+
+                select.innerHTML = '<option value="">Select label...</option>';
+                labels.forEach(label => {
+                    const option = document.createElement('option');
+                    option.value = label;
+                    option.textContent = label;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load labels:', error);
+                select.innerHTML = '<option value="">Error loading labels</option>';
+            }
+        }
+
+        async function loadAdvancedLabelValues(labelKeySelect) {
+            const labelKey = labelKeySelect.value;
+            if (!labelKey) return;
+
+            const valueSelect = labelKeySelect.parentElement.querySelector('.advanced-label-value');
+            const metric = document.getElementById('advanced-metric').value;
+
+            try {
+                const url = metric
+                    ? `/api/prometheus/label-values/${encodeURIComponent(labelKey)}?metric=${encodeURIComponent(metric)}`
+                    : `/api/prometheus/label-values/${encodeURIComponent(labelKey)}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                const values = data.values || [];
+
+                valueSelect.innerHTML = '<option value="">Select value...</option>';
+                values.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = value;
+                    valueSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load label values:', error);
+                valueSelect.innerHTML = '<option value="">Error loading values</option>';
+            }
+
+            updatePromQLPreview();
+        }
+
+        function updateBasicPromQL() {
+            const metric = document.getElementById('basic-metric').value;
+            if (!metric) {
+                document.getElementById('promql-preview').textContent = '# Select a metric to start building your query';
+                return;
+            }
+
+            // Build label filters
+            const labelFilters = [];
+            document.querySelectorAll('#basic-labels-container .label-filter').forEach(filter => {
+                const key = filter.querySelector('.basic-label-key').value;
+                const op = filter.querySelector('.basic-label-op').value;
+                const value = filter.querySelector('.basic-label-value').value;
+
+                if (key && value) {
+                    // Escape quotes in value if using regex operators
+                    const escapedValue = (op === '=~' || op === '!~') ? value : `"${value}"`;
+                    labelFilters.push(`${key}${op}${escapedValue}`);
+                }
+            });
+
+            // Build base metric query
+            let query = metric;
+            if (labelFilters.length > 0) {
+                query += `{${labelFilters.join(',')}}`;
+            }
+
+            // Add comparison and threshold
+            const operator = document.getElementById('basic-operator').value;
+            const threshold = document.getElementById('basic-threshold').value;
+
+            if (threshold) {
+                query += ` ${operator} ${threshold}`;
+            }
+
+            document.getElementById('promql-preview').textContent = query;
+        }
+
+        function updatePromQLPreview() {
+            const func = document.getElementById('advanced-function').value;
+            const metric = document.getElementById('advanced-metric').value;
+            const aggregation = document.getElementById('advanced-aggregation').value;
+            const grouping = document.getElementById('advanced-grouping').value;
+            const operator = document.getElementById('advanced-operator').value;
+            const threshold = document.getElementById('advanced-threshold').value;
+            const range = document.getElementById('advanced-range').value;
+
+            if (!metric) {
+                document.getElementById('promql-preview').textContent = '# Select a metric to start building your query';
+                return;
+            }
+
+            // Show/hide range input based on function selection
+            const needsRange = ['rate', 'irate', 'increase', 'delta', 'deriv', 'avg_over_time', 'min_over_time', 'max_over_time', 'sum_over_time'].includes(func);
+            document.getElementById('advanced-range-container').style.display = needsRange ? 'block' : 'none';
+
+            // Show/hide grouping based on aggregation selection
+            document.getElementById('advanced-grouping-container').style.display = aggregation ? 'block' : 'none';
+
+            // Build label filters
+            const labelFilters = [];
+            document.querySelectorAll('#advanced-labels-container .label-filter').forEach(filter => {
+                const key = filter.querySelector('.advanced-label-key').value;
+                const op = filter.querySelector('.advanced-label-op').value;
+                const value = filter.querySelector('.advanced-label-value').value;
+
+                if (key && value) {
+                    const escapedValue = (op === '=~' || op === '!~') ? value : `"${value}"`;
+                    labelFilters.push(`${key}${op}${escapedValue}`);
+                }
+            });
+
+            // Build base metric query
+            let query = metric;
+            if (labelFilters.length > 0) {
+                query += `{${labelFilters.join(',')}}`;
+            }
+
+            // Add range for range vector functions
+            if (needsRange && func) {
+                if (range) {
+                    query += `[${range}]`;
+                } else {
+                    query += '[5m]'; // default range
+                }
+            }
+
+            // Wrap in function if selected
+            if (func) {
+                query = `${func}(${query})`;
+            }
+
+            // Wrap in aggregation if selected
+            if (aggregation) {
+                if (grouping) {
+                    const labels = grouping.split(',').map(l => l.trim()).filter(l => l);
+                    query = `${aggregation} by (${labels.join(',')}) (${query})`;
+                } else {
+                    query = `${aggregation}(${query})`;
+                }
+            }
+
+            // Add comparison and threshold
+            if (threshold) {
+                query += ` ${operator} ${threshold}`;
+            }
+
+            document.getElementById('promql-preview').textContent = query;
         }
 
         function closeEditRuleModal() {

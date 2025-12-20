@@ -7,6 +7,7 @@ An extensible auto-remediation framework that bridges Prometheus Alertmanager wi
 - **Webhook Receiver**: Receives alerts from Prometheus Alertmanager
 - **StackStorm Integration**: Executes remediation actions via StackStorm API
 - **Prometheus Rule Management**: Edit and manage Prometheus alert rules via CRDs and GitOps
+- **PromQL Query Builder**: Visual builder with Basic, Advanced, and Raw modes for creating alert rules without memorizing PromQL syntax
 - **Management UI**: Comprehensive web interface with Dashboard, Health monitoring, and Settings
 - **Authentication**: Optional session-based authentication with Kubernetes secret integration
 - **Command-Line Interface**: Powerful CLI (`pcake`) for managing alerts and rules
@@ -252,18 +253,6 @@ helm install poundcake ./helm/poundcake \
   --namespace poundcake \
   --create-namespace \
   --set stackstorm.apiKey=your-st2-api-key
-```
-
-### Building the Docker Image
-
-The Dockerfile is used to build images for the Helm chart deployment:
-
-```bash
-# Build the image
-docker build -t ghcr.io/aedan/poundcake:0.2.0 .
-
-# Push to GitHub Container Registry
-docker push ghcr.io/aedan/poundcake:0.2.0
 ```
 
 ### Using a Specific Image Version
@@ -525,6 +514,12 @@ Access the web UI at `/ui` to manage your PoundCake instance:
 
 **Prometheus Rules Tab**:
 - View and manage Prometheus alert rules via CRDs
+- **PromQL Query Builder** with three editing modes:
+  - **Basic Mode**: Build simple queries with metric selection, label filters, and thresholds using dropdown menus
+  - **Advanced Mode**: Create complex queries with functions (rate, increase, etc.), aggregations (sum, avg), and grouping
+  - **Raw Mode**: Direct PromQL editing for maximum control
+- Dynamic metric and label discovery from your Prometheus instance
+- Real-time PromQL preview as you build your query
 - Create, edit, and delete rules through the UI
 - GitOps integration for automatic PR creation
 - Filter by state (firing/pending/inactive)
@@ -562,6 +557,100 @@ receivers:
       - url: 'http://poundcake:8080/webhook'
         send_resolved: true
 ```
+
+## Using the PromQL Query Builder
+
+PoundCake includes a visual query builder for creating and editing Prometheus alert rules without needing to memorize PromQL syntax. The builder has three modes to suit different complexity levels.
+
+### Accessing the Query Builder
+
+1. Navigate to the **Prometheus Rules** tab in the web UI
+2. Click **Edit** on an existing rule or create a new one
+3. Choose your editing mode using the mode buttons: **Basic**, **Advanced**, or **Raw PromQL**
+
+### Basic Mode
+
+Perfect for simple threshold-based alerts:
+
+**Features:**
+- **Metric Selection**: Search and select from all available metrics in your Prometheus instance
+- **Label Filters**: Add filters using dropdowns populated with actual label names and values
+- **Comparison Operators**: Choose from `>`, `<`, `==`, `!=`, `>=`, `<=`
+- **Threshold**: Set the numeric threshold value
+- **Live Preview**: See the generated PromQL in real-time
+
+**Example Use Case:**
+Create an alert when memory usage exceeds 90%:
+1. Select metric: `node_memory_usage`
+2. Add label filter: `instance` = `prod-server`
+3. Set operator: `>`
+4. Set threshold: `90`
+5. Generated PromQL: `node_memory_usage{instance="prod-server"} > 90`
+
+### Advanced Mode
+
+For complex queries with functions, aggregations, and grouping:
+
+**Features:**
+- **Functions**: Apply time-series functions like `rate()`, `increase()`, `avg_over_time()`
+- **Range Selection**: Set time ranges for functions (e.g., `[5m]`)
+- **Metric Selection**: Same dynamic metric discovery as Basic mode
+- **Label Filters**: Filter by labels with dynamic value discovery
+- **Aggregations**: Use `sum`, `avg`, `min`, `max`, `count`, `stddev`, `stdvar`
+- **Group By**: Group aggregations by specific labels
+- **Comparison & Threshold**: Set comparison operators and values
+- **Live Preview**: Real-time PromQL generation
+
+**Example Use Case:**
+Alert when HTTP 500 errors exceed 100 requests/second per job:
+1. Select function: `rate()`
+2. Set range: `5m`
+3. Select metric: `http_requests_total`
+4. Add label filter: `status` = `500`
+5. Select aggregation: `sum`
+6. Group by: `job, instance`
+7. Set operator: `>`
+8. Set threshold: `100`
+9. Generated PromQL: `sum by (job,instance) (rate(http_requests_total{status="500"}[5m])) > 100`
+
+### Raw PromQL Mode
+
+For maximum control and complex queries:
+
+**Features:**
+- Direct text editing of PromQL
+- Full PromQL syntax support
+- Useful for queries that can't be built visually
+- Can switch from builder modes to raw to see the generated query
+
+**When to Use:**
+- Complex boolean logic
+- Multiple metric queries combined with operators
+- Subqueries or advanced PromQL features
+- Editing existing complex queries
+
+### Mode Switching
+
+You can freely switch between modes:
+- **Builder → Raw**: The generated PromQL is copied to the raw editor
+- **Raw → Builder**: Start fresh with the visual builder (previous raw query is preserved if you switch back)
+
+### Dynamic Data Loading
+
+The builder dynamically fetches data from your Prometheus instance:
+- **Metrics**: All available metric names
+- **Labels**: Label names relevant to the selected metric
+- **Values**: Actual label values from your time-series data
+
+This ensures you're always building queries with valid, existing metrics and labels.
+
+### Best Practices
+
+1. **Start Simple**: Use Basic mode for threshold alerts
+2. **Iterate**: Build complex queries step-by-step in Advanced mode
+3. **Test First**: Use Prometheus UI to test PromQL before creating alerts
+4. **Use Labels**: Leverage label filters to target specific instances or services
+5. **Preview**: Always check the generated PromQL preview before saving
 
 ## Helm Values Reference
 
