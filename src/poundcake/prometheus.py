@@ -288,7 +288,7 @@ class PrometheusClient:
                             # Remove __name__ as it's handled separately
                             return [
                                 label for label in labels if label != "__name__"
-                            ]  # type: ignore[misc]
+                            ]
 
                 logger.error(
                     "Failed to fetch label names",
