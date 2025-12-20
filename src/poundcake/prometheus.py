@@ -286,9 +286,7 @@ class PrometheusClient:
                         if data.get("status") == "success":
                             labels = data.get("data", [])
                             # Remove __name__ as it's handled separately
-                            return [
-                                label for label in labels if label != "__name__"
-                            ]
+                            return [label for label in labels if label != "__name__"]
 
                 logger.error(
                     "Failed to fetch label names",
