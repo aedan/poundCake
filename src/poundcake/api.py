@@ -1025,6 +1025,7 @@ def get_management_ui_html() -> str:
 
         <div id="prometheus" class="panel">
             <div class="filter-bar">
+                <input type="text" id="prom-search" placeholder="Search alerts..." style="width: 250px;" oninput="loadPrometheusRules()">
                 <select id="prom-state-filter" onchange="loadPrometheusRules()">
                     <option value="">All States</option>
                     <option value="firing">Firing</option>
@@ -1032,6 +1033,7 @@ def get_management_ui_html() -> str:
                     <option value="inactive">Inactive</option>
                 </select>
                 <button class="btn btn-primary btn-sm" onclick="loadPrometheusRules()">Refresh</button>
+                <button class="btn btn-success btn-sm" onclick="createPrometheusRule()">Create Alert</button>
                 <span id="persistence-status" style="margin-left: 10px; font-size: 12px; color: #666;"></span>
             </div>
             <table>
@@ -1559,6 +1561,7 @@ def get_management_ui_html() -> str:
 
         async function loadPrometheusRules() {
             const state = document.getElementById('prom-state-filter').value;
+            const searchTerm = document.getElementById('prom-search').value.toLowerCase();
             const res = await fetch('/api/prometheus/rules');
             const data = await res.json();
             const tbody = document.getElementById('prometheus-table');
@@ -1596,8 +1599,20 @@ def get_management_ui_html() -> str:
             }
 
             let rules = data.rules || [];
+
+            // Filter by state
             if (state) {
                 rules = rules.filter(r => r.state === state);
+            }
+
+            // Filter by search term
+            if (searchTerm) {
+                rules = rules.filter(r =>
+                    r.name.toLowerCase().includes(searchTerm) ||
+                    r.query.toLowerCase().includes(searchTerm) ||
+                    r.group.toLowerCase().includes(searchTerm) ||
+                    r.file.toLowerCase().includes(searchTerm)
+                );
             }
 
             if (rules.length === 0) {
@@ -1689,6 +1704,64 @@ def get_management_ui_html() -> str:
                 console.error('Failed to fetch settings:', error);
             }
 
+            // Mark form as editing (not creating)
+            document.getElementById('rule-form').dataset.mode = 'edit';
+
+            document.getElementById('edit-rule-modal').classList.add('active');
+        }
+
+        async function createPrometheusRule() {
+            document.getElementById('rule-modal-title').textContent = 'Create Prometheus Rule';
+            document.getElementById('rule-name').value = '';
+            document.getElementById('rule-name').disabled = false;
+            document.getElementById('rule-group').value = '';
+            document.getElementById('rule-file').value = '';
+            document.getElementById('rule-expr').value = '';
+            document.getElementById('rule-for').value = '';
+
+            // Clear labels and annotations
+            document.getElementById('rule-labels-container').innerHTML = '';
+            document.getElementById('rule-annotations-container').innerHTML = '';
+
+            // Initialize PromQL builder
+            await initPromQLBuilder();
+
+            // Clear builder containers
+            document.getElementById('basic-labels-container').innerHTML = '';
+            document.getElementById('advanced-labels-container').innerHTML = '';
+
+            // Reset builder inputs
+            document.getElementById('basic-metric').value = '';
+            document.getElementById('basic-operator').value = '>';
+            document.getElementById('basic-threshold').value = '';
+            document.getElementById('advanced-function').value = '';
+            document.getElementById('advanced-metric').value = '';
+            document.getElementById('advanced-operator').value = '>';
+            document.getElementById('advanced-threshold').value = '';
+            document.getElementById('advanced-aggregation').value = '';
+            document.getElementById('advanced-grouping').value = '';
+            document.getElementById('advanced-range').value = '';
+
+            // Set mode to basic by default for new rules
+            setPromQLMode('basic');
+
+            // Update button text based on Git configuration
+            try {
+                const settingsRes = await fetch('/api/settings');
+                const settings = await settingsRes.json();
+                const saveBtn = document.getElementById('save-rule-btn');
+                if (settings.git_enabled) {
+                    saveBtn.textContent = 'Create & Create PR';
+                } else {
+                    saveBtn.textContent = 'Create Rule';
+                }
+            } catch (error) {
+                console.error('Failed to fetch settings:', error);
+            }
+
+            // Mark form as creating (not editing)
+            document.getElementById('rule-form').dataset.mode = 'create';
+
             document.getElementById('edit-rule-modal').classList.add('active');
         }
 
@@ -1763,15 +1836,30 @@ def get_management_ui_html() -> str:
                     annotations: Object.keys(annotations).length > 0 ? annotations : undefined
                 };
 
-                const res = await fetch(`/api/prometheus/rules/${ruleName}?group_name=${groupName}&file_name=${fileName}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(ruleData)
-                });
+                // Check if we're creating or editing
+                const mode = document.getElementById('rule-form').dataset.mode || 'edit';
+                const isCreate = mode === 'create';
+
+                let res;
+                if (isCreate) {
+                    // POST request for creating a new rule
+                    res = await fetch(`/api/prometheus/rules?rule_name=${ruleName}&group_name=${groupName}&file_name=${fileName}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(ruleData)
+                    });
+                } else {
+                    // PUT request for updating an existing rule
+                    res = await fetch(`/api/prometheus/rules/${ruleName}?group_name=${groupName}&file_name=${fileName}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(ruleData)
+                    });
+                }
 
                 if (!res.ok) {
                     const error = await res.json();
-                    alert(`Failed to update rule: ${error.detail || res.statusText}`);
+                    alert(`Failed to ${isCreate ? 'create' : 'update'} rule: ${error.detail || res.statusText}`);
                     return;
                 }
 
@@ -1779,7 +1867,7 @@ def get_management_ui_html() -> str:
                 closeEditRuleModal();
                 loadPrometheusRules();
 
-                let message = `Rule updated successfully!
+                let message = `Rule ${isCreate ? 'created' : 'updated'} successfully!
 
 `;
 
