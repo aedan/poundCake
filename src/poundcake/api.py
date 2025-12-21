@@ -974,7 +974,6 @@ def get_management_ui_html() -> str:
             <button class="tab" onclick="showTab('mappings')">Mappings</button>
             <button class="tab" onclick="showTab('actions')">StackStorm Actions</button>
             <button class="tab" onclick="showTab('history')">Execution History</button>
-            <button class="tab" onclick="showTab('health')">Health</button>
         </div>
 
         <div id="dashboard" class="panel active">
@@ -1103,11 +1102,6 @@ def get_management_ui_html() -> str:
                 </thead>
                 <tbody id="history-table"></tbody>
             </table>
-        </div>
-
-        <div id="health" class="panel">
-            <h2 style="margin-bottom: 20px;">System Health</h2>
-            <div class="dashboard-grid" id="health-metrics"></div>
         </div>
     </div>
 
@@ -1371,7 +1365,6 @@ def get_management_ui_html() -> str:
             if (tab === 'mappings') loadMappings();
             if (tab === 'actions') { loadPacks(); loadActions(); }
             if (tab === 'history') loadHistory();
-            if (tab === 'health') loadHealth();
         }
 
         // Alert tracking functions
@@ -2565,67 +2558,6 @@ actions:
                 console.error('Error loading dashboard:', error);
                 document.getElementById('dashboard-metrics').innerHTML =
                     '<div class="dashboard-card error"><h3>Error Loading Dashboard</h3><p>' + error.message + '</p></div>';
-            }
-        }
-
-        // Health functions
-        async function loadHealth() {
-            try {
-                const healthRes = await fetch('/health');
-                const health = await healthRes.json();
-
-                const metricsDiv = document.getElementById('health-metrics');
-                const stackstormClass = health.stackstorm === 'healthy' ? 'healthy' : 'error';
-                const stateClass = health.state_store === 'healthy' ? 'healthy' : 'error';
-                const overallClass = health.status === 'healthy' ? 'healthy' : (health.status === 'degraded' ? 'warning' : 'error');
-
-                metricsDiv.innerHTML = `
-                    <div class="dashboard-card ${overallClass}">
-                        <h3><span class="health-indicator ${overallClass}"></span>Overall System</h3>
-                        <div class="metric-row">
-                            <span class="metric-label">Status</span>
-                            <span class="metric-value">${health.status.toUpperCase()}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Instance ID</span>
-                            <span class="metric-value" style="font-size: 12px;">${health.instance_id || 'Unknown'}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Handlers</span>
-                            <span class="metric-value">${health.handlers || 0}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Last Updated</span>
-                            <span class="metric-value" style="font-size: 12px;">${new Date().toLocaleString()}</span>
-                        </div>
-                    </div>
-                    <div class="dashboard-card ${stackstormClass}">
-                        <h3><span class="health-indicator ${stackstormClass}"></span>StackStorm</h3>
-                        <div class="metric-row">
-                            <span class="metric-label">Connection</span>
-                            <span class="metric-value">${health.stackstorm ? 'HEALTHY' : 'UNHEALTHY'}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">API Accessible</span>
-                            <span class="metric-value">${health.stackstorm ? 'Yes' : 'No'}</span>
-                        </div>
-                    </div>
-                    <div class="dashboard-card ${stateClass}">
-                        <h3><span class="health-indicator ${stateClass}"></span>State Store</h3>
-                        <div class="metric-row">
-                            <span class="metric-label">Status</span>
-                            <span class="metric-value">${health.state_store ? 'HEALTHY' : 'UNHEALTHY'}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Connection</span>
-                            <span class="metric-value">${health.state_store ? 'Connected' : 'Unavailable'}</span>
-                        </div>
-                    </div>
-                `;
-            } catch (error) {
-                console.error('Error loading health:', error);
-                document.getElementById('health-metrics').innerHTML =
-                    '<div class="dashboard-card error"><h3>Error Loading Health Data</h3><p>' + error.message + '</p></div>';
             }
         }
 
